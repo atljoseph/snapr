@@ -36,13 +36,15 @@ func init() {
 	rootCmd.AddCommand(snapCmd)
 
 	// "default" device is the default
-	snapCmd.Flags().StringVarP(&snapCmOpts.CaptureDeviceAddr, "capture-device", "c", "default", "Device Address")
+	snapCmd.Flags().StringVar(&snapCmOpts.CaptureDeviceAddr, "capture-device", "default", "Capture Device Address")
 
 	// if this is not set, the base dir is the output directory
-	snapCmd.Flags().StringVarP(&snapCmOpts.OutFilePathParam, "extra-dir", "e", "", "Output File Path Parameter")
+	snapCmd.Flags().StringVar(&snapCmOpts.OutFilePathParam, "extra-dir", "", "Output File Path Parameter")
 
 	// this is where the files go
-	snapCmd.Flags().StringVarP(&snapCmOpts.BaseOutDir, "base-dir", "d", "~/", "Device Address")
+	snapCmd.Flags().StringVar(&snapCmOpts.BaseOutDir, "base-dir", "~/", "Base Directory")
+
+	// TODO: Upload flag, or mark for upload
 }
 
 func snap(cmd *cobra.Command, args []string) error {
@@ -53,7 +55,7 @@ func snap(cmd *cobra.Command, args []string) error {
 	usersExec := exec.Command("/bin/sh", "-c", "users")
 	usersBytes, err := usersExec.Output()
 	if err != nil {
-		return fmt.Errorf("(%s) => (%s) %s", funcTag, "get users list", err)
+		return wrapError(err, funcTag, "get users list")
 	}
 	usersOutput := bytes.NewBuffer(usersBytes).String()
 	// remove line breaks
@@ -74,7 +76,7 @@ func snap(cmd *cobra.Command, args []string) error {
 	// ensure output dir exists
 	err = os.MkdirAll(outFileDir, os.ModeDir)
 	if err != nil {
-		return fmt.Errorf("(%s) => (%s) %s", funcTag, "mkdir for outFileDir", err)
+		return wrapError(err, funcTag, "mkdir for outFileDir")
 	}
 
 	// input device driver
@@ -120,7 +122,7 @@ func snap(cmd *cobra.Command, args []string) error {
 	// execute and wait
 	err = ffmpegExec.Run()
 	if err != nil {
-		return fmt.Errorf("(%s) => (%s) %s", funcTag, "running command", err)
+		return wrapError(err, funcTag, "running command")
 	}
 
 	// done
