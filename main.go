@@ -9,13 +9,23 @@ import (
 	"github.com/subosito/gotenv"
 )
 
+var (
+	// EnvFilePath is the path to `.env` file
+	// this can be set by `-ldflags` upon running `go build -ldflags "-X main.EnvFilePath=.other.env" snapr`
+	EnvFilePath string
+)
+
 func main() {
+
+	if len(EnvFilePath) == 0 {
+		EnvFilePath = ".env"
+	}
 
 	// load env
 	// used this lib to be able to compile env into binary
 	logrus.Infof("Loading environment")
 	box := packr.NewBox("./")
-	envString, err := box.FindString(".env")
+	envString, err := box.FindString(EnvFilePath)
 	if err != nil {
 		logrus.Warnf(err.Error())
 	}

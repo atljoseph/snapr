@@ -20,6 +20,8 @@ S3_TOKEN=ABC123
 S3_SECRET=123ABC
 ```
 
+To use a different file, like `.prod.env`, see the `Build` section (below).
+
 ## Build
 
 Upon building, the environment is compiled into the binary.
@@ -34,6 +36,11 @@ For specific OS:
 ```
 GOOS=linux go build snapr
 GOOS=darwin go build snapr
+```
+
+To use a custom `.env` file:
+```
+go build -ldflags "-X main.EnvFilePath=.prod.env" snapr
 ```
 
 ## Snap Command
