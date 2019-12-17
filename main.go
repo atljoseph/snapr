@@ -19,13 +19,14 @@ func main() {
 	if err != nil {
 		logrus.Warnf(err.Error())
 	}
+	// logrus.Infof(envString)
 
 	// apply env
 	// used this lib because it is loadable from string
 	logrus.Infof("Applying environment")
 	gotenv.Apply(strings.NewReader(envString))
+	// logrus.Infof(os.Getenv("S3_BUCKET"))
 
-	// logrus.Infof(envString)
-
+	// start the cli
 	cli.Execute()
 }

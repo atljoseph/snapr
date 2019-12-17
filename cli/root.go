@@ -10,20 +10,13 @@ import (
 
 // RootCmdOpts options
 type RootCmdOpts struct {
-	OSType string
+	EnvFilePath string
 }
 
 // snap command
 var (
-	osTypes = []string{
-		// "win", // unsupported
-		"lin",
-		"mac",
-	}
-	rootCmdOpts = RootCmdOpts{
-		OSType: "mac",
-	}
-	rootCmd = &cobra.Command{
+	rootCmdOpts = RootCmdOpts{}
+	rootCmd     = &cobra.Command{
 		Use:   "snapr",
 		Short: "Snapr is a snapper turtle.",
 		Long:  `Do you like turtles?`,

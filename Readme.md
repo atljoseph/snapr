@@ -6,8 +6,9 @@ Works on Linux and Mac computers.
 
 ## TODO
 
-- Pidgeon command improvement - look up files from the base directory
+- Upload command improvement - look up files from the base directory to upload
 - Test with PAM and Crontab
+- Add specific filename to snap command
 
 ## Environment
 
@@ -48,13 +49,18 @@ snapr snap --extra-dir my/sub/dir
 
 Example:
 ```
-snapr snap --base-dir /Users/joseph/Desktop
+snapr snap
 ```
 
-## Pidgeon Command
+## Upload Command
 
 Uploads a photo to an AWS bucket:
 ```
-snapr pidgeon --base-dir my/base/dir
-snapr pidgeon --in-file my/in/file
+snapr upload --base-dir my/base/dir
+snapr upload --in-file my/in/file
+```
+
+Example:
+```
+snapr upload --in-file file.jpg
 ```

@@ -13,17 +13,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// PidgeonCmdOpts options
-type PidgeonCmdOpts struct {
+// UploadCmdOpts options
+type UploadCmdOpts struct {
 	BaseReadDir string
 	InFileName  string
 }
 
-// pidgeon command
+// upload command
 var (
-	pidgeonCmdOpts = PidgeonCmdOpts{}
-	pidgeonCmd     = &cobra.Command{
-		Use:   "pidgeon",
+	uploadCmdOpts = UploadCmdOpts{}
+	uploadCmd     = &cobra.Command{
+		Use:   "upload",
 		Short: "Snapr is a snapper turtle.",
 		Long:  `Do you like turtles?`,
 		RunE:  upload,
@@ -32,16 +32,16 @@ var (
 
 func init() {
 	// add command to root
-	rootCmd.AddCommand(pidgeonCmd)
+	rootCmd.AddCommand(uploadCmd)
 
 	// this is where the files are pulled from
-	pidgeonCmd.Flags().StringVar(&pidgeonCmdOpts.BaseReadDir, "base-dir", "~/", "Base Directory")
-	pidgeonCmd.Flags().StringVar(&pidgeonCmdOpts.InFileName, "in-file", "test.jpg", "Input File")
+	uploadCmd.Flags().StringVar(&uploadCmdOpts.BaseReadDir, "base-dir", "~", "Base Directory")
+	uploadCmd.Flags().StringVar(&uploadCmdOpts.InFileName, "in-file", "test.jpg", "Input File")
 }
 
 func upload(cmd *cobra.Command, args []string) error {
-	funcTag := "pidgeon"
-	logrus.Infof("Pidgeoning")
+	funcTag := "upload"
+	logrus.Infof("Uploading")
 
 	// TODO: get a list of files to upload to the bucket
 	// based on the base dir, etc
@@ -61,9 +61,9 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// Open the file for use
-	inFilePath := pidgeonCmdOpts.InFileName
-	if len(pidgeonCmdOpts.BaseReadDir) > 0 {
-		inFilePath = pidgeonCmdOpts.BaseReadDir + "/" + pidgeonCmdOpts.InFileName
+	inFilePath := uploadCmdOpts.InFileName
+	if len(uploadCmdOpts.BaseReadDir) > 0 {
+		inFilePath = uploadCmdOpts.BaseReadDir + "/" + uploadCmdOpts.InFileName
 	}
 	file, err := os.Open(inFilePath)
 	if err != nil {

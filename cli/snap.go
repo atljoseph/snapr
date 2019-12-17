@@ -42,7 +42,7 @@ func init() {
 	snapCmd.Flags().StringVar(&snapCmOpts.OutFilePathParam, "extra-dir", "", "Output File Path Parameter")
 
 	// this is where the files go
-	snapCmd.Flags().StringVar(&snapCmOpts.BaseOutDir, "base-dir", "~/", "Base Directory")
+	snapCmd.Flags().StringVar(&snapCmOpts.BaseOutDir, "base-dir", "~", "Base Directory")
 
 	// TODO: Upload flag, or mark for upload
 }
