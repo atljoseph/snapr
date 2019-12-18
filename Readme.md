@@ -7,8 +7,8 @@ Works on Linux and Mac computers.
 ## TODO
 
 - Upload command improvement - look up files from the base directory to upload
+- Add Tests for Upload command
 - Test with PAM and Crontab
-- Add specific filename to snap command
 
 ## Environment
 
