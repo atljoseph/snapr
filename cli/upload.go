@@ -13,15 +13,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// UploadCmdOpts options
-type UploadCmdOpts struct {
-	BaseReadDir string
-	InFileName  string
+// UploadCmdOptions options
+type UploadCmdOptions struct {
+	BaseReadDir         string
+	InFileName          string
+	CleanupAfterSuccess bool
 }
 
 // upload command
 var (
-	uploadCmdOpts = UploadCmdOpts{}
+	UploadCmdOpts = UploadCmdOptions{}
 	uploadCmd     = &cobra.Command{
 		Use:   "upload",
 		Short: "Snapr is a snapper turtle.",
@@ -35,8 +36,9 @@ func init() {
 	rootCmd.AddCommand(uploadCmd)
 
 	// this is where the files are pulled from
-	uploadCmd.Flags().StringVar(&uploadCmdOpts.BaseReadDir, "base-dir", "~", "Base Directory")
-	uploadCmd.Flags().StringVar(&uploadCmdOpts.InFileName, "in-file", "test.jpg", "Input File")
+	uploadCmd.Flags().StringVar(&UploadCmdOpts.BaseReadDir, "upload-dir", getEnvVarString("UPLOAD_DIR", "/"), "Base Directory")
+	// uploadCmd.Flags().BoolVar(&UploadCmdOpts.CleanupAfterSuccess, "dir", true, "Base Directory")
+	uploadCmd.Flags().StringVar(&UploadCmdOpts.InFileName, "upload-file", getEnvVarString("UPLOAD_FILE", "test.jpg"), "Input File")
 }
 
 func upload(cmd *cobra.Command, args []string) error {
@@ -61,9 +63,9 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// Open the file for use
-	inFilePath := uploadCmdOpts.InFileName
-	if len(uploadCmdOpts.BaseReadDir) > 0 {
-		inFilePath = uploadCmdOpts.BaseReadDir + "/" + uploadCmdOpts.InFileName
+	inFilePath := UploadCmdOpts.InFileName
+	if len(UploadCmdOpts.BaseReadDir) > 0 {
+		inFilePath = UploadCmdOpts.BaseReadDir + "/" + UploadCmdOpts.InFileName
 	}
 	file, err := os.Open(inFilePath)
 	if err != nil {

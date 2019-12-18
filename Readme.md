@@ -43,31 +43,44 @@ To use a custom `.env` file:
 go build -ldflags "-X main.EnvFilePath=.prod.env" snapr
 ```
 
+## Test
+
+To run tests to test the functionality of command scripts:
+```
+go test
+```
+
+The test will create a tempt directory to run test commands in, and then clean up once done.
+
 ## Snap Command
 
 Snaps a webcam photo:
 ```
 snapr snap
 snapr snap --help
-snapr snap --capture-device /dev/video1
-snapr snap --base-dir my/base/dir
+snapr snap --device /dev/video1
+snapr snap --dir my/base/dir
 snapr snap --extra-dir my/sub/dir
 ```
 
-Example:
+Examples:
 ```
 snapr snap
+snap --snap-dir ~/Desktop/testy
+snap --snap-dir ~/Desktop/testy --snap-format png
+snap --snap-dir ~/Desktop/testy --snap-dir-extra extraFolder
+snap --snap-dir ~/Desktop/testy --snap-dir-extra extraFolder --snap-file test.jpg
 ```
 
 ## Upload Command
 
 Uploads a photo to an AWS bucket:
 ```
-snapr upload --base-dir my/base/dir
-snapr upload --in-file my/in/file
+snapr upload --dir my/base/dir
+snapr upload --file my/in/file
 ```
 
-Example:
+Examples:
 ```
-snapr upload --in-file file.jpg
+snapr upload --file file.jpg
 ```
