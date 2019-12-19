@@ -136,7 +136,9 @@ func TestCommandSnap(t *testing.T) {
 }
 
 func wrapTestError(test snapTest, errMsg string) string {
-	return fmt.Sprintf("(%s) [%+v] %s", test.description, test.cmdOpts, errMsg)
+	msg := fmt.Sprintf("(%s) [%+v] %s", test.description, test.cmdOpts, errMsg)
+	logrus.Warnf(msg)
+	return msg
 }
 
 func cleanupTestDir(testDir string) (err error) {
