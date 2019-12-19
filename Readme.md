@@ -8,6 +8,8 @@ Works on Linux and Mac computers.
 
 - Upload command improvement - look up files from the base directory to upload
 - Add Tests for Upload command
+- Add List Command
+- Add Download Command
 - Test with PAM and Crontab
 
 ## Build

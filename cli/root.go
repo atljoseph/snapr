@@ -37,7 +37,6 @@ func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		// warn for visibility
 		logrus.Warnf(err.Error())
-		logrus.Warnf("Please ensure ffmpeg is installed on this machine.")
 		// exit with status 0 for PAM
 		os.Exit(0)
 	}
