@@ -25,50 +25,61 @@ type SnapCmdOptions struct {
 
 // snap command
 var (
-	// export for testing
-	SnapCmdOpts = SnapCmdOptions{}
+	snapCmdOpts = SnapCmdOptions{}
 	snapCmd     = &cobra.Command{
 		Use:   "snap",
 		Short: "Snapr is a snapper turtle.",
 		Long:  `Do you like turtles?`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return SnapCmdRunE(args)
+			snapCmdOpts = snapCmdTransformPositionalArgs(args, snapCmdOpts)
+			return SnapCmdRunE(snapCmdOpts)
 		},
 	}
 )
+
+// snapCmdTransformPositionalArgs adds the positional string args
+// from the command to the options struct (for DI)
+// care should be taken to not use the same options here as in flags, etc
+func snapCmdTransformPositionalArgs(args []string, opts SnapCmdOptions) SnapCmdOptions {
+	// if len(args) > 0 {
+	// // can use env vars, too!
+	// 	opts.Something = args[0]
+	// }
+	return opts
+}
 
 func init() {
 	// add command to root
 	rootCmd.AddCommand(snapCmd)
 
 	// capture device address
-	snapCmd.Flags().StringVar(&SnapCmdOpts.CaptureDeviceAddr,
+	snapCmd.Flags().StringVar(&snapCmdOpts.CaptureDeviceAddr,
 		"snap-device", getEnvVarString("SNAP_DEVICE", getDefaultCaptureDevice()),
 		fmt.Sprintf("(Recommended) Capture Device Address - Try it out without this set, or run `snapr list` to discover possibilities."))
 
 	// this is appended to `dir`if set
-	snapCmd.Flags().StringVar(&SnapCmdOpts.OutDirExtra,
+	snapCmd.Flags().StringVar(&snapCmdOpts.OutDirExtra,
 		"snap-dir-extra", getEnvVarString("SNAP_DIR_EXTRA", ""),
 		"(Optional) Output Directory - Appended to the Output Directory")
 
 	// this is where the files get written to
-	snapCmd.Flags().StringVar(&SnapCmdOpts.OutDir,
+	snapCmd.Flags().StringVar(&snapCmdOpts.OutDir,
 		"snap-dir", getEnvVarString("SNAP_DIR", "/"),
 		fmt.Sprintf("(Recommended) Output Directory"))
 
 	// file override ... optional
-	snapCmd.Flags().StringVar(&SnapCmdOpts.OutFileOverride,
+	snapCmd.Flags().StringVar(&snapCmdOpts.OutFileOverride,
 		"snap-file", getEnvVarString("SNAP_FILE", ""),
 		"(Override) Output File")
 
 	// format override
 	supportedFormats := strings.Join(getSupportedCaptureFormats(), ",")
-	snapCmd.Flags().StringVar(&SnapCmdOpts.Format,
+	snapCmd.Flags().StringVar(&snapCmdOpts.Format,
 		"snap-format", getEnvVarString("SNAP_FILE_FORMAT", ""),
 		fmt.Sprintf("(Optional) Output Format - Ignored if using '--snap-file'. Supported Formats: [%s]", supportedFormats))
 
 	// prepend users logged in to the filename
-	snapCmd.Flags().BoolVar(&SnapCmdOpts.PrependUsers,
+	snapCmd.Flags().BoolVar(&snapCmdOpts.PrependUsers,
 		"snap-users", getEnvVarBool("SNAP_FILE_USERS", false),
 		"(Optional) Prepend Logged in Users to auto-generated filename. Will be ignored if '--snap-file' is used.")
 
@@ -76,14 +87,14 @@ func init() {
 }
 
 // SnapCmdRunE is exported for testing
-func SnapCmdRunE(args []string) error {
+func SnapCmdRunE(opts SnapCmdOptions) error {
 	funcTag := "SnapCmdRunE"
 	logrus.Infof("Snap")
 
 	// validate the format override
 	// TODO: add the format check for the file name override
-	if len(SnapCmdOpts.Format) > 0 {
-		if !isSupportedCaptureFormat(SnapCmdOpts.Format) {
+	if len(opts.Format) > 0 {
+		if !isSupportedCaptureFormat(opts.Format) {
 			return wrapError(fmt.Errorf("Validation Error"), funcTag, "get users list")
 		}
 	}
@@ -91,16 +102,16 @@ func SnapCmdRunE(args []string) error {
 	// build the out file name
 	outFileName := ""
 	outFileNameTimeFormat := "2006-01-02T15-04-05"
-	outFileExt := SnapCmdOpts.Format
+	outFileExt := opts.Format
 	if len(outFileExt) == 0 {
 		outFileExt = getDefaultCaptureFormat()
 	}
 
 	// if not overridden filename
-	if len(SnapCmdOpts.OutFileOverride) == 0 {
+	if len(opts.OutFileOverride) == 0 {
 
 		// get the users if specified
-		if SnapCmdOpts.PrependUsers {
+		if opts.PrependUsers {
 			// get the logged in users list
 			usersExec := exec.Command("/bin/sh", "-c", "users")
 			usersBytes, err := usersExec.Output()
@@ -125,13 +136,13 @@ func SnapCmdRunE(args []string) error {
 	} else {
 
 		// overriding filename
-		outFileName = SnapCmdOpts.OutFileOverride
+		outFileName = opts.OutFileOverride
 	}
 
 	// directory where the output file will go
-	outFileDir := strings.ReplaceAll(SnapCmdOpts.OutDir, "//", "/")
-	if len(SnapCmdOpts.OutDirExtra) > 0 {
-		outFileDir += strings.ReplaceAll("/"+SnapCmdOpts.OutDirExtra, "//", "/")
+	outFileDir := strings.ReplaceAll(opts.OutDir, "//", "/")
+	if len(opts.OutDirExtra) > 0 {
+		outFileDir += strings.ReplaceAll("/"+opts.OutDirExtra, "//", "/")
 	}
 
 	// the complete out dir and file path
@@ -168,10 +179,26 @@ func SnapCmdRunE(args []string) error {
 
 	// capture address
 	webcamAddr := "-i "
-	if len(SnapCmdOpts.CaptureDeviceAddr) > 0 {
-		webcamAddr += SnapCmdOpts.CaptureDeviceAddr
+	if len(opts.CaptureDeviceAddr) > 0 {
+		webcamAddr += opts.CaptureDeviceAddr
 	} else {
 		webcamAddr += getDefaultCaptureDevice()
+	}
+
+	// check if the ffmpeg command exists
+	_, err = exec.LookPath("ffmpeg")
+	if err != nil {
+		suggestion := "dependency issue ... please install ffmpeg: `%s`"
+		cmdSuggestion := ""
+		if strings.EqualFold(runtime.GOOS, "linux") {
+			cmdSuggestion = "sudo apt install ffmpeg"
+		}
+		if strings.EqualFold(runtime.GOOS, "darwin") {
+			cmdSuggestion = "brew install ffmpeg"
+		}
+		suggestion = fmt.Sprintf(suggestion, cmdSuggestion)
+		logrus.Warnf(suggestion)
+		return wrapError(err, funcTag, suggestion)
 	}
 
 	// build the os cmd to execute

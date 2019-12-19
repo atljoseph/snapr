@@ -22,26 +22,40 @@ type UploadCmdOptions struct {
 
 // upload command
 var (
-	UploadCmdOpts = UploadCmdOptions{}
+	uploadCmdOpts = UploadCmdOptions{}
 	uploadCmd     = &cobra.Command{
 		Use:   "upload",
 		Short: "Snapr is a snapper turtle.",
 		Long:  `Do you like turtles?`,
-		RunE:  upload,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			uploadCmdOpts = uploadCmdTransformPositionalArgs(args, uploadCmdOpts)
+			return RunUploadCmdE(uploadCmdOpts)
+		},
 	}
 )
+
+// uploadCmdTransformPositionalArgs adds the positional string args
+// from the command to the options struct (for DI)
+// care should be taken to not use the same options here as in flags, etc
+func uploadCmdTransformPositionalArgs(args []string, opts UploadCmdOptions) UploadCmdOptions {
+	// if len(args) > 0 {
+	// // can use env vars, too!
+	// 	opts.Something = args[0]
+	// }
+	return opts
+}
 
 func init() {
 	// add command to root
 	rootCmd.AddCommand(uploadCmd)
 
 	// this is where the files are pulled from
-	uploadCmd.Flags().StringVar(&UploadCmdOpts.BaseReadDir, "upload-dir", getEnvVarString("UPLOAD_DIR", "/"), "Base Directory")
+	uploadCmd.Flags().StringVar(&uploadCmdOpts.BaseReadDir, "upload-dir", getEnvVarString("UPLOAD_DIR", "/"), "Base Directory")
 	// uploadCmd.Flags().BoolVar(&UploadCmdOpts.CleanupAfterSuccess, "dir", true, "Base Directory")
-	uploadCmd.Flags().StringVar(&UploadCmdOpts.InFileName, "upload-file", getEnvVarString("UPLOAD_FILE", "test.jpg"), "Input File")
+	uploadCmd.Flags().StringVar(&uploadCmdOpts.InFileName, "upload-file", getEnvVarString("UPLOAD_FILE", "test.jpg"), "Input File")
 }
 
-func upload(cmd *cobra.Command, args []string) error {
+func RunUploadCmdE(opts UploadCmdOptions) error {
 	funcTag := "upload"
 	logrus.Infof("Uploading")
 
@@ -63,9 +77,9 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// Open the file for use
-	inFilePath := UploadCmdOpts.InFileName
-	if len(UploadCmdOpts.BaseReadDir) > 0 {
-		inFilePath = UploadCmdOpts.BaseReadDir + "/" + UploadCmdOpts.InFileName
+	inFilePath := opts.InFileName
+	if len(opts.BaseReadDir) > 0 {
+		inFilePath = opts.BaseReadDir + "/" + opts.InFileName
 	}
 	file, err := os.Open(inFilePath)
 	if err != nil {
