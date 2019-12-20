@@ -91,11 +91,19 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		return util.WrapError(err, funcTag, "get new aws session")
 	}
 
-	// TODO: get a list of files to upload to the bucket
-	// based on the base dir, etc
-	// ignore files without specific filename format
-	// if too many files, give up
-	// after success, rename the file
+	// TODO: check limit, is it a crazy high number? if so kick it back
+
+	// TODO: based on the base dir, walk all files
+
+	// TODO: filter out files without specific filename format
+
+	// TODO: order the files with the oldest first and newest last
+
+	// TODO: chop off a slice of these equal to the limit input
+
+	// TODO: loop to upload the files
+
+	// TODO: after success, cleanup the files?
 
 	// get the abs dir path
 	opts.InDir, err = filepath.Abs(opts.InDir)

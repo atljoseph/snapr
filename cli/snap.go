@@ -231,6 +231,8 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 		return util.WrapError(err, funcTag, "running command")
 	}
 
+	// TODO: if upload required, call the upload command!
+
 	// done
 	logrus.Infof("Snapped %s", outFilePath)
 	return nil
