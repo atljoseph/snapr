@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 )
@@ -63,5 +65,48 @@ func ensureTestDir(relativeDirName string) (pwd string, dir string, err error) {
 	}
 
 	logrus.Infof("TMP DIR Created")
+	return
+}
+
+func copyFile(existingRelativePath, newRelativePath string) (bytesCopied int64, err error) {
+
+	// get the absolute path of existing file
+	existingAbsPath, err := filepath.Abs(existingRelativePath)
+	if err != nil {
+		err = fmt.Errorf("could not get absoltue path for existing file: %s", existingRelativePath)
+		return
+	}
+
+	// get the absolute path of new file
+	newAbsPath, err := filepath.Abs(newRelativePath)
+	if err != nil {
+		err = fmt.Errorf("could not get absoltue path for new file: %s", newRelativePath)
+		return
+	}
+
+	// open the existing file to get its data
+	existingFile, err := os.Open(existingAbsPath)
+	if err != nil {
+		err = fmt.Errorf("could not open existing file: %s", existingAbsPath)
+		return
+	}
+	defer existingFile.Close()
+
+	// Create new file
+	newFile, err := os.Create(newAbsPath)
+	if err != nil {
+		err = fmt.Errorf("could not create new file: %s", newAbsPath)
+		return
+	}
+	defer newFile.Close()
+
+	// copy the data to the new file
+	bytesCopied, err = io.Copy(newFile, existingFile)
+	if err != nil {
+		err = fmt.Errorf("could not copy data new file: %s", newAbsPath)
+		return
+	}
+
+	// done
 	return
 }

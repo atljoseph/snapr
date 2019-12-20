@@ -29,7 +29,7 @@ var (
 		Long:  `Do you like turtles?`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uploadCmdOpts = uploadCmdTransformPositionalArgs(args, uploadCmdOpts)
-			return UploadCmdRunE(uploadCmdOpts)
+			return UploadCmdRunE(rootCmdOpts, uploadCmdOpts)
 		},
 	}
 )
@@ -81,7 +81,7 @@ func init() {
 
 // UploadCmdRunE runs the snap command
 // it is exported for testing
-func UploadCmdRunE(opts *UploadCmdOptions) error {
+func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	funcTag := "upload"
 	logrus.Infof("Upload")
 

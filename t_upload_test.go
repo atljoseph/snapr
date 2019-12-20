@@ -16,6 +16,21 @@ type uploadTest struct {
 	cmdOpts         *cli.UploadCmdOptions
 }
 
+// define the tests
+// InDir is set on all these programmatically (below)
+var uploadCommandTests = []uploadTest{
+	{"no file defined should fail", false,
+		&cli.UploadCmdOptions{}},
+	{"explicitly defined file when does not exist", false,
+		&cli.UploadCmdOptions{
+			InFileOverride: "xyz.jpg",
+		}},
+	{"explicitly defined file when exists", true,
+		&cli.UploadCmdOptions{
+			InFileOverride: "t_test.jpg",
+		}},
+}
+
 func TestCommandUpload(t *testing.T) {
 
 	// ensure the temp directory exists
@@ -26,32 +41,22 @@ func TestCommandUpload(t *testing.T) {
 	// go ahead and clean up, then defer it for later, too
 	defer cleanupTestDir(testTempDir)
 
-	// TODO: ensure a test file exists
-
-	tests := []uploadTest{
-		{"no file defined should fail", false,
-			&cli.UploadCmdOptions{}},
-		{"explicitly defined file when does not exist", false,
-			&cli.UploadCmdOptions{
-				InFileOverride: "xyz.jpg",
-			}},
-		{"explicitly defined file when exists", true,
-			&cli.UploadCmdOptions{
-				InFileOverride: "../t_test.jpg",
-			}},
-	}
-
-	// set the base dir (because i was lazy)
-	for _, test := range tests {
-		test.cmdOpts.InDir = testTempDir
+	// ensure a test file exists
+	testFilePath := "t_test.jpg"
+	_, err = copyFile(testFilePath, filepath.Join(testTempDir, testFilePath))
+	if err != nil {
+		t.Errorf("could not copy test image file")
 	}
 
 	// loop through aand run tests
-	for idx, test := range tests {
+	for idx, test := range uploadCommandTests {
 		logrus.Infof("TEST %d (%s)", idx+1, test.description)
 
+		// set the output dir (was lazy)
+		test.cmdOpts.InDir = testTempDir // filepath.Join(testTempDir, test.description)
+
 		// run test command
-		err := cli.UploadCmdRunE(test.cmdOpts)
+		err := cli.UploadCmdRunE(&cli.RootCmdOptions{}, test.cmdOpts)
 		logrus.Infof("Command Ran")
 
 		// what was expected vs. what was got?

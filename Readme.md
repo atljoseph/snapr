@@ -36,8 +36,10 @@ go build -ldflags "-X main.EnvFilePath=.prod.env" snapr
 ## Environment
 
 You need a file at the project root named `.env`, and yes, it can be blank.
+For the environment variables specified in the `.env` file, after building, they will no longer be overridable at runtime. 
+If a variable is not set, then it can be overriden at runtime.
 
-These variables apply to the `snap` command flags:
+These OPTIONAL variables apply to the `snap` command flags:
 ```
 SNAP_DEVICE=
 SNAP_DIR_EXTRA=
@@ -47,12 +49,16 @@ SNAP_FILE_FORMAT=
 SNAP_FILE_USERS=
 ```
 
-These variables apply to the `upload` command flags:
+These OPTIONAL variables apply to the `upload` command flags:
 ```
-TODO
+UPLOAD_DIR=
+UPLOAD_FILE=
+UPLOAD_CLEANUP_AFTER_SUCCESS=
+UPLOAD_FORMATS=
+UPLOAD_LIMIT=
 ```
 
-These variables are used for AWS:
+These REQUIRED variables are used for AWS:
 ```
 S3_BUCKET=my.s3.bucket
 S3_REGION=us-east-west

@@ -8,14 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RootCmdOpts options
-type RootCmdOpts struct {
+// RootCmdOptions are for root flags
+type RootCmdOptions struct {
 	EnvFilePath string
 }
 
 // snap command
 var (
-	rootCmdOpts = RootCmdOpts{}
+	rootCmdOpts = &RootCmdOptions{}
 	rootCmd     = &cobra.Command{
 		Use:   "snapr",
 		Short: "Snapr is a snapper turtle.",

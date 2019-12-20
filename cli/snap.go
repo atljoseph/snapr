@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,7 +21,7 @@ type SnapCmdOptions struct {
 	OutDirExtra       string
 	OutFileOverride   string
 	Format            string
-	PrependUsers      bool
+	OutDirUsers       bool
 }
 
 // snap command
@@ -34,7 +33,7 @@ var (
 		Long:  `Do you like turtles?`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapCmdOpts = snapCmdTransformPositionalArgs(args, snapCmdOpts)
-			return SnapCmdRunE(snapCmdOpts)
+			return SnapCmdRunE(rootCmdOpts, snapCmdOpts)
 		},
 	}
 )
@@ -61,7 +60,7 @@ func init() {
 
 	// this is appended to `dir`if set
 	snapCmd.Flags().StringVar(&snapCmdOpts.OutDirExtra,
-		"dir-extra", util.EnvVarString("SNAP_DIR_EXTRA", ""),
+		"extra-dir", util.EnvVarString("SNAP_DIR_EXTRA", ""),
 		"(Optional) Output Directory - Appended to the Output Directory")
 
 	// this is where the files get written to
@@ -84,7 +83,7 @@ func init() {
 
 	// TODO: make this add an extra dir instead of prepending
 	// prepend users logged in to the filename
-	snapCmd.Flags().BoolVar(&snapCmdOpts.PrependUsers,
+	snapCmd.Flags().BoolVar(&snapCmdOpts.OutDirUsers,
 		"users", util.EnvVarBool("SNAP_FILE_USERS", false),
 		"(Optional) Prepend Logged in Users to auto-generated filename - Will be ignored if '--snap-file' is used")
 
@@ -93,7 +92,7 @@ func init() {
 
 // SnapCmdRunE runs the snap command
 // it is exported for testing
-func SnapCmdRunE(opts *SnapCmdOptions) error {
+func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 	funcTag := "SnapCmdRunE"
 	logrus.Infof("Snap")
 
@@ -112,29 +111,13 @@ func SnapCmdRunE(opts *SnapCmdOptions) error {
 		opts.Format = util.DefaultCaptureFormat()
 	}
 
+	fmt.Printf("%+v", opts)
+
 	// if not overridden filename
 	if len(opts.OutFileOverride) == 0 {
 
-		// get the users if specified
-		if opts.PrependUsers {
-			// get the logged in users list
-			usersExec := exec.Command("/bin/sh", "-c", "users")
-			usersBytes, err := usersExec.Output()
-			if err != nil {
-				return util.WrapError(err, funcTag, "get users list")
-			}
-			usersOutput := bytes.NewBuffer(usersBytes).String()
-			// remove line breaks
-			usersOutput = strings.ReplaceAll(usersOutput, "\n", "")
-			// replace spaces ith "-"
-			usersOutput = strings.ReplaceAll(usersOutput, " ", "-")
-
-			// add the users output
-			outFileName += usersOutput + "-"
-		}
-
 		// add the time format
-		outFileName = time.Now().Format(outFileNameTimeFormat)
+		outFileName += time.Now().Format(outFileNameTimeFormat)
 
 		// add the extension
 		outFileName = outFileName + "." + opts.Format
@@ -161,19 +144,31 @@ func SnapCmdRunE(opts *SnapCmdOptions) error {
 		}
 	}
 
-	// directory where the output file will go
-	outFileDir := opts.OutDir
+	// extra sub-directory where the output file will go
 	if len(opts.OutDirExtra) > 0 {
-		outFileDir = filepath.Join(outFileDir, opts.OutDirExtra)
+		opts.OutDir = filepath.Join(opts.OutDir, opts.OutDirExtra)
+	}
+
+	// extra sub-directory for the users output
+	// get the users if specified
+	if opts.OutDirUsers {
+		// get the list of logged in users
+		usersOutput, err := util.OSUsers()
+		if err != nil {
+			return util.WrapError(err, funcTag, "getting users output")
+		}
+
+		// add the users output
+		opts.OutDir = filepath.Join(opts.OutDir, usersOutput)
 	}
 
 	// the complete out dir and file path
-	outFilePath := fmt.Sprintf("%s/%s", outFileDir, outFileName)
+	outFilePath := fmt.Sprintf("%s/%s", opts.OutDir, outFileName)
 	// outFilePath = strings.ReplaceAll(outFilePath, "//", "/")
 	logrus.Infof("Snapping %s", outFilePath)
 
 	// ensure output dir exists
-	err = os.MkdirAll(outFileDir, 0700)
+	err = os.MkdirAll(opts.OutDir, 0700)
 	if err != nil {
 		return util.WrapError(err, funcTag, "mkdir for outFileDir")
 	}
@@ -226,7 +221,7 @@ func SnapCmdRunE(opts *SnapCmdOptions) error {
 	// build the os cmd to execute
 	// capture command with ffmpeg
 	// overwrite existing file if any
-	ffmpegExecString := fmt.Sprintf("ffmpeg %s %s %s %s %s %s -y", driverType, framerate, resolution, webcamAddr, vframes, outFilePath)
+	ffmpegExecString := fmt.Sprintf("ffmpeg %s %s %s %s %s \"%s\" -y", driverType, framerate, resolution, webcamAddr, vframes, outFilePath)
 	logrus.Infof("Command: %s", ffmpegExecString)
 	ffmpegExec := exec.Command("/bin/sh", "-c", ffmpegExecString)
 
