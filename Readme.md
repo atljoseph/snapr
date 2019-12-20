@@ -6,11 +6,9 @@ Works on Linux and Mac computers.
 
 ## TODO
 
-- Improve Upload command (dir walking) and add new tests
-- Add Users to Snap Command testing and retreat the prepend as new dir
-- Add List Command and tests
+- Test and document with PAM and Crontab (exit code 0 for pam)
+- Add List Command and tests to list capture devices
 - Add Download Command and tests
-- Test with PAM and Crontab (exit code 0 for pam)
 
 ## Build
 
