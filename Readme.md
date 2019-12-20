@@ -100,12 +100,15 @@ snapr snap --dir my/base/dir
 snapr snap --extra-dir my/sub/dir
 snapr snap --users
 snapr snap --format png
+snapr snap --upload --cleanup
 ```
 
 ## Upload Command
 
 To upload a photo to an AWS bucket:
 ```
-snapr upload --dir my/base/dir
 snapr upload --file my/in/file.ext
+snapr upload --file my/in/file.ext --cleanup
+
+snapr upload --dir my/base/dir (not quite there yet)
 ```
