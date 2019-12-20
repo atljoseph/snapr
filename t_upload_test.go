@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"snapr/cli"
 	"snapr/util"
@@ -28,6 +29,12 @@ var uploadCommandTests = []uploadTest{
 	{"explicitly defined file when exists", true,
 		&cli.UploadCmdOptions{
 			InFileOverride: "t_test.jpg",
+		}},
+	// this should always be the last test
+	{"cleanup after success", true,
+		&cli.UploadCmdOptions{
+			InFileOverride:      "t_test.jpg",
+			CleanupAfterSuccess: true,
 		}},
 }
 
@@ -78,7 +85,8 @@ func TestCommandUpload(t *testing.T) {
 
 			// TODO: check all uploaded files (when multiples)
 			var filesToConfirm []string
-			filesToConfirm = append(filesToConfirm, test.cmdOpts.InFileOverride)
+			filePath := filepath.Join(test.cmdOpts.InDir, test.cmdOpts.InFileOverride)
+			filesToConfirm = append(filesToConfirm, filePath)
 
 			// get a new aws session
 			s, err := util.NewAwsSession()
@@ -86,23 +94,43 @@ func TestCommandUpload(t *testing.T) {
 				logrus.Warnf("get aws session: %s", err)
 			}
 
+			// check in AWS
 			for _, fileToConfirm := range filesToConfirm {
 
-				// get the base file path
+				// get the base file name
 				fileToConfirm = filepath.Base(fileToConfirm)
 
 				// check if the file exists in aws
 				exists, err := util.CheckAwsFileExists(s, fileToConfirm)
 				if err != nil {
-					logrus.Warnf("check aws file exists: %s", err)
+					logrus.Warnf("check file exists in aws: %s", err)
 				}
 
 				// report on existance
 				if exists {
-					logrus.Infof("File Exists: %s", fileToConfirm)
+					logrus.Infof("File Exists in AWS: %s", fileToConfirm)
 				} else {
-					t.Errorf(wrapUploadTestError(test, fmt.Sprintf("file not found: %s", err)))
+					t.Errorf(wrapUploadTestError(test, fmt.Sprintf("file not found in aws: %s", err)))
 				}
+			}
+
+			// check in OS
+			if test.cmdOpts.CleanupAfterSuccess {
+				// if cleanup, then make sure they aren't there
+				for _, fileToConfirm := range filesToConfirm {
+
+					// get the dir of the file
+					// dirToConfirm := filepath.Dir(fileToConfirm)
+
+					// stat each file
+					// if no error, then there is a problem
+					_, err := os.Stat(fileToConfirm)
+					if err == nil {
+						t.Errorf(wrapUploadTestError(test, fmt.Sprintf("file found in os when expected to be deleted: %s", err)))
+					}
+				}
+
+				logrus.Infof("Cleanup validated")
 			}
 
 		}

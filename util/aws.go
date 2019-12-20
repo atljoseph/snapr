@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/sirupsen/logrus"
 )
 
 // NewAwsSession gets a new AWS session in a structured way
@@ -27,7 +26,7 @@ func NewAwsSession() (*session.Session, error) {
 func CheckAwsFileExists(s *session.Session, key string) (bool, error) {
 	funcTag := "CheckAwsFileExists"
 
-	logrus.Infof("Check Key: %s", key)
+	// logrus.Infof("Check Key: %s", key)
 
 	_, err := s3.New(s).HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(os.Getenv("S3_BUCKET")),
