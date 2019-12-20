@@ -13,5 +13,5 @@ func WrapError(err error, funcTag, message string) error {
 	if len(message) == 0 {
 		message = "-"
 	}
-	return fmt.Errorf(format, message, funcTag, err.Error())
+	return fmt.Errorf(format, err.Error(), funcTag, message)
 }

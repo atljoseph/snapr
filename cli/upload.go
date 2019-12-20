@@ -16,7 +16,7 @@ type UploadCmdOptions struct {
 	InDir               string
 	InFileOverride      string
 	CleanupAfterSuccess bool
-	Formats             string
+	Formats             []string
 	UploadLimit         int
 }
 
@@ -51,9 +51,8 @@ func init() {
 
 	// this is where the files are pulled from
 	// default to the directory where the binary exists (pwd)
-	pwd, _ := os.Getwd()
 	uploadCmd.Flags().StringVar(&uploadCmdOpts.InDir,
-		"dir", util.EnvVarString("UPLOAD_DIR", pwd),
+		"dir", util.EnvVarString("UPLOAD_DIR", ""),
 		"(Optional) Upload Directory")
 
 	// file override ... optional
@@ -68,9 +67,9 @@ func init() {
 
 	// upload format filter
 	supportedFormats := strings.Join(util.SupportedCaptureFormats(), ",")
-	snapCmd.Flags().StringVar(&uploadCmdOpts.Formats,
-		"formats", util.EnvVarString("UPLOAD_FORMATS", ""),
-		fmt.Sprintf("(Optional) Upload Formats (comma delimited) - Ignored if using '--snap-file' - Supported Formats: [%s]", supportedFormats))
+	uploadCmd.Flags().StringSliceVar(&uploadCmdOpts.Formats,
+		"formats", util.EnvVarStringSlice("UPLOAD_FORMATS", ""),
+		fmt.Sprintf("(Optional) Upload Formats (comma delimited) - Ignored if using '--file' - Supported Formats: [%s]", supportedFormats))
 
 	// upload file limit
 	snapCmd.Flags().IntVar(&uploadCmdOpts.UploadLimit,
@@ -91,74 +90,146 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		return util.WrapError(err, funcTag, "get new aws session")
 	}
 
-	// TODO: check limit, is it a crazy high number? if so kick it back
+	// check limit, is it a crazy high number? if so kick it back
+	if opts.UploadLimit > 100 {
+		return util.WrapError(fmt.Errorf("Validation Error"), funcTag, "choose an upload limit smaller than 100")
+	}
 
-	// TODO: based on the base dir, walk all files
+	// TODO: ????? refactor
+	// if the file override is set
+	if len(opts.InFileOverride) > 0 {
+		// and the input dir is empty
+		if len(opts.InDir) == 0 {
 
-	// TODO: filter out files without specific filename format
+			// get the abs file path
+			absPath, err := filepath.Abs(opts.InFileOverride)
+			if err != nil {
+				logrus.Warnf("cannot convert path to absolute file path: %s", opts.InFileOverride)
+			}
+
+			// set these explicitly
+			opts.InDir = filepath.Dir(absPath)
+			opts.InFileOverride = filepath.Base(absPath)
+		}
+	} else {
+		// override is empty
+
+		// default the in dir if empty
+		if len(opts.InDir) == 0 {
+			opts.InDir, err = os.Getwd()
+			if err != nil {
+				return util.WrapError(err, funcTag, "cannot get pwd for InDir")
+			}
+		}
+
+		// get the abs dir path
+		opts.InDir, err = filepath.Abs(opts.InDir)
+		if err != nil {
+			return util.WrapError(err, funcTag, fmt.Sprintf("cannot convert path to absolute dir path: %s", opts.InDir))
+		}
+	}
+
+	var files []util.WalkedFile
+
+	// get the slice of walkedFiles
+	// if the file override is set, ignore the walk and upload limit
+	if len(opts.InFileOverride) > 0 {
+
+		// join the override file path with the dir
+		fullPath := filepath.Join(opts.InDir, opts.InFileOverride)
+
+		// stat the path
+		fileInfo, err := os.Stat(fullPath)
+		if err != nil {
+			return util.WrapError(err, funcTag, "cannot stat file")
+		}
+
+		// ensure is a file
+		if fileInfo.IsDir() {
+			return util.WrapError(fmt.Errorf("validation error"), funcTag, "file cannot be a directory")
+		}
+
+		// append the walked file struct
+		files = append(files, util.WalkedFile{
+			Path:     fullPath,
+			FileInfo: fileInfo,
+		})
+	} else {
+		// based on the indir, walk all files
+		files, err = util.WalkFiles(opts.InDir)
+		if err != nil {
+			return util.WrapError(err, funcTag, fmt.Sprintf("walking dir for files to upload: %s", opts.InDir))
+		}
+	}
+
+	logrus.Infof("Got %d files before filtering", len(files))
 
 	// TODO: order the files with the oldest first and newest last
 
-	// TODO: chop off a slice of these equal to the limit input
-
-	// TODO: loop to upload the files
-
-	// TODO: after success, cleanup the files?
-
-	// get the abs dir path
-	opts.InDir, err = filepath.Abs(opts.InDir)
-	if err != nil {
-		logrus.Warnf("cannot convert path to absolute dir path: %s", opts.InDir)
+	// validate the formats input
+	// weirdness with the cobra lib and the []string var
+	if len(opts.Formats) == 0 || len(opts.Formats[0]) == 0 {
+		opts.Formats = util.SupportedCaptureFormats()
 	}
 
-	// only do this if indir is empty
-	if len(opts.InDir) == 0 {
-		// get the abs file path
-		opts.InFileOverride, err = filepath.Abs(opts.InFileOverride)
-		if err != nil {
-			logrus.Warnf("cannot convert path to absolute file path: %s", opts.InFileOverride)
+	// filter out files without specific filename format
+	var filteredFiles []util.WalkedFile
+	for _, file := range files {
+
+		// get the file extension, and replace the dot (weirdness of this lib)
+		fileExt := strings.ReplaceAll(filepath.Ext(file.Path), ".", "")
+
+		// filter formats
+		for _, format := range opts.Formats {
+			// if the format matches
+			if strings.EqualFold(fileExt, format) {
+				// append the file to the slice
+				filteredFiles = append(filteredFiles, file)
+			}
 		}
 	}
 
-	// build the file path
-	inFilePath := opts.InFileOverride
-	if len(opts.InDir) > 0 {
-		inFilePath = filepath.Join(opts.InDir, opts.InFileOverride)
+	logrus.Infof("Got %d files after filtering", len(filteredFiles))
+
+	// if no files after filtering, error
+	if len(filteredFiles) == 0 {
+		return util.WrapError(fmt.Errorf("Validation Error"), funcTag, "no files with specified format exist at target")
 	}
 
-	// stat the file
-	fileInfo, err := os.Stat(inFilePath)
-	if err != nil {
-		return util.WrapError(err, funcTag, "cannot stat file")
+	// chop off a slice of these equal to the limit input
+	length := len(filteredFiles)
+	if opts.UploadLimit > 1 {
+		length = util.MinInt(opts.UploadLimit, len(filteredFiles))
 	}
+	filteredFiles = filteredFiles[0:length]
+	logrus.Infof("Got %d files to upload", len(filteredFiles))
 
-	// ensure is a file
-	if fileInfo.IsDir() {
-		return util.WrapError(fmt.Errorf("validation error"), funcTag, "file cannot be a directory")
-	}
+	// loop to upload the files
+	for _, file := range filteredFiles {
 
-	logrus.Infof("Uploading %s", inFilePath)
+		logrus.Infof("Uploading %s %+v", file.Path, filteredFiles)
 
-	// send to AWS
-	key, err := util.SendToAws(s, inFilePath)
-	if err != nil {
-		return util.WrapError(err, funcTag, "sending file to aws")
-	}
-
-	// done
-	logrus.Infof("Done uploading key: %s", key)
-
-	// cleanup?
-	if opts.CleanupAfterSuccess {
-
-		// remove the file from the os if desired
-		err = os.Remove(inFilePath)
+		// send to AWS
+		key, err := util.SendToAws(s, file.Path)
 		if err != nil {
-			return util.WrapError(err, funcTag, "removing the file after upload")
+			return util.WrapError(err, funcTag, "sending file to aws")
 		}
 
-		logrus.Infof("Cleaned up: %s", inFilePath)
+		// done
+		logrus.Infof("Done uploading key: %s", key)
 
+		// after success, cleanup the files
+		if opts.CleanupAfterSuccess {
+
+			// remove the file from the os if desired
+			err = os.Remove(file.Path)
+			if err != nil {
+				return util.WrapError(err, funcTag, "removing the file after upload")
+			}
+
+			logrus.Infof("Cleaned up: %s", file.Path)
+
+		}
 	}
 
 	return nil

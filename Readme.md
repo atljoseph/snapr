@@ -85,9 +85,17 @@ To run tests to test the functionality of command scripts:
 go test
 ```
 
-The test will create a tempt directory to run test commands in, and then clean up once done.
+The test will create a temp directory to run test commands in, and then clean up once done.
 
-Currently, only the `snap` command is tested.
+To run just the `snap` command tests:
+```
+go test -run="Snap"
+```
+
+To run just the `upload` command tests:
+```
+go test -run="Upload"
+```
 
 ## Snap Command
 
@@ -109,6 +117,6 @@ To upload a photo to an AWS bucket:
 ```
 snapr upload --file my/in/file.ext
 snapr upload --file my/in/file.ext --cleanup
-
-snapr upload --dir my/base/dir (not quite there yet)
+snapr upload --dir my/base/dir 
+snapr upload --limit 10
 ```

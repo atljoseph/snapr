@@ -3,8 +3,6 @@ package util
 import (
 	"os"
 	"path/filepath"
-
-	"github.com/sirupsen/logrus"
 )
 
 type WalkedFile struct {
@@ -31,7 +29,7 @@ func WalkAllFilesHelper(files *[]WalkedFile) filepath.WalkFunc {
 		if err != nil {
 			return WrapError(err, funcTag, "walking helper error")
 		} else if !info.Mode().IsDir() {
-			logrus.Infof("Walker %s", path)
+			// logrus.Infof("Walker %s", path)
 			*files = append(*files, WalkedFile{
 				Path:     path,
 				FileInfo: info,

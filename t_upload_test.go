@@ -20,8 +20,6 @@ type uploadTest struct {
 // define the tests
 // InDir is set on all these programmatically (below)
 var uploadCommandTests = []uploadTest{
-	{"no file defined should fail", false,
-		&cli.UploadCmdOptions{}},
 	{"explicitly defined file when does not exist", false,
 		&cli.UploadCmdOptions{
 			InFileOverride: "xyz.jpg",
@@ -30,10 +28,26 @@ var uploadCommandTests = []uploadTest{
 		&cli.UploadCmdOptions{
 			InFileOverride: "t_test.jpg",
 		}},
+	{"mismatched format, should fail", false,
+		&cli.UploadCmdOptions{
+			InFileOverride: "t_test.jpg",
+			Formats:        []string{"png"},
+		}},
+	{"specific format", true,
+		&cli.UploadCmdOptions{
+			InFileOverride: "t_test.jpg",
+			Formats:        []string{"jpg"},
+		}},
+	{"directory without file, should upload one test file", true,
+		&cli.UploadCmdOptions{}},
+	{"directory without file and with limit, should upload multiple", true,
+		&cli.UploadCmdOptions{
+			UploadLimit: 3,
+		}},
 	// this should always be the last test
 	{"cleanup after success", true,
 		&cli.UploadCmdOptions{
-			InFileOverride:      "t_test.jpg",
+			UploadLimit:         3,
 			CleanupAfterSuccess: true,
 		}},
 }
@@ -55,11 +69,16 @@ func TestCommandUpload(t *testing.T) {
 		t.Errorf("could not copy test image file")
 	}
 
+	// ensure another test file exists
+	_, err = copyFile(testFilePath, filepath.Join(testTempDir, testFilePath+".jpg"))
+	if err != nil {
+		t.Errorf("could not copy test image file")
+	}
+
 	// loop through aand run tests
 	for idx, test := range uploadCommandTests {
 		logrus.Infof("TEST %d (%s)", idx+1, test.description)
 
-		// set the output dir (was lazy)
 		test.cmdOpts.InDir = testTempDir // filepath.Join(testTempDir, test.description)
 
 		// run test command
@@ -115,23 +134,22 @@ func TestCommandUpload(t *testing.T) {
 			}
 
 			// check in OS
-			if test.cmdOpts.CleanupAfterSuccess {
-				// if cleanup, then make sure they aren't there
-				for _, fileToConfirm := range filesToConfirm {
-
-					// get the dir of the file
-					// dirToConfirm := filepath.Dir(fileToConfirm)
-
-					// stat each file
-					// if no error, then there is a problem
-					_, err := os.Stat(fileToConfirm)
-					if err == nil {
-						t.Errorf(wrapUploadTestError(test, fmt.Sprintf("file found in os when expected to be deleted: %s", err)))
+			// if cleanup, then make sure they aren't there (or there if not)
+			for _, fileToConfirm := range filesToConfirm {
+				// stat each file
+				// if no error, then there is a problem
+				_, err := os.Stat(fileToConfirm)
+				if err != nil {
+					// ignore this error if we are uploading
+					if test.cmdOpts.CleanupAfterSuccess {
+						continue
 					}
+					// if not cleaning up, then should still be there
+					t.Errorf(wrapUploadTestError(test, fmt.Sprintf("file found in os when expected to be deleted: %s", err)))
 				}
-
-				logrus.Infof("Cleanup validated")
 			}
+
+			logrus.Infof("Cleanup validated")
 
 		}
 

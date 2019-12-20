@@ -15,6 +15,13 @@ func EnvVarString(envKey, defaultValue string) string {
 	return envValue
 }
 
+// EnvVarStringSlice returns the string input or the default if not set
+func EnvVarStringSlice(envKey, defaultValue string) []string {
+	strValue := EnvVarString(envKey, defaultValue)
+	strValue = strings.ReplaceAll(strValue, " ", "")
+	return strings.Split(strValue, ",")
+}
+
 // EnvVarInt returns the input as an int, or the default if not set
 func EnvVarInt(envKey string, defaultValue int) int {
 	// start by defaulting to the default

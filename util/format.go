@@ -5,10 +5,11 @@ import (
 )
 
 // SupportedCaptureFormats returns a slice of supported image capture formats
-func SupportedCaptureFormats() (list []string) {
+func SupportedCaptureFormats() []string {
+	var list []string
 	list = append(list, "jpg")
 	list = append(list, "png")
-	return
+	return list
 }
 
 // DefaultCaptureFormat returns the default capture format
