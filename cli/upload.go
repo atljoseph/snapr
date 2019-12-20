@@ -147,5 +147,19 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 	// done
 	logrus.Infof("Done uploading key: %s", key)
+
+	// cleanup?
+	if opts.CleanupAfterSuccess {
+
+		// remove the file from the os if desired
+		err = os.Remove(inFilePath)
+		if err != nil {
+			return util.WrapError(err, funcTag, "removing the file after upload")
+		}
+
+		logrus.Infof("Cleaned up: %s", inFilePath)
+
+	}
+
 	return nil
 }

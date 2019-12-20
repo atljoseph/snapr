@@ -58,6 +58,17 @@ var snapCommandTests = []snapTest{
 			OutFileOverride: "test.jpg",
 			Format:          "png", // should not create with this fmt
 		}},
+	{"snap with upload", true,
+		&cli.SnapCmdOptions{
+			OutFileOverride:    "toUpload.jpg",
+			UploadAfterSuccess: true,
+		}},
+	{"snap with upload, then cleanup", true,
+		&cli.SnapCmdOptions{
+			OutFileOverride:    "toUploadAndRemove.jpg",
+			UploadAfterSuccess: true,
+			CleanupAfterUpload: true,
+		}},
 }
 
 func TestCommandSnap(t *testing.T) {
@@ -125,6 +136,10 @@ func TestCommandSnap(t *testing.T) {
 
 			// ensure at least one file
 			if len(files) == 0 {
+				// ignore this error if we are uploading
+				if test.cmdOpts.CleanupAfterUpload {
+					continue
+				}
 				t.Errorf(wrapSnapTestError(test, "output file not found. expected one"))
 			}
 

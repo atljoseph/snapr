@@ -16,12 +16,14 @@ import (
 
 // SnapCmdOptions options
 type SnapCmdOptions struct {
-	OutDir            string
-	CaptureDeviceAddr string
-	OutDirExtra       string
-	OutFileOverride   string
-	Format            string
-	OutDirUsers       bool
+	OutDir             string
+	CaptureDeviceAddr  string
+	OutDirExtra        string
+	OutFileOverride    string
+	Format             string
+	OutDirUsers        bool
+	UploadAfterSuccess bool
+	CleanupAfterUpload bool
 }
 
 // snap command
@@ -79,15 +81,22 @@ func init() {
 	supportedFormats := strings.Join(util.SupportedCaptureFormats(), ",")
 	snapCmd.Flags().StringVar(&snapCmdOpts.Format,
 		"format", util.EnvVarString("SNAP_FILE_FORMAT", ""),
-		fmt.Sprintf("(Optional) Output Format - Ignored if using '--snap-file' - Supported Formats: [%s]", supportedFormats))
+		fmt.Sprintf("(Optional) Output Format - Ignored if using '--file' - Supported Formats: [%s]", supportedFormats))
 
-	// TODO: make this add an extra dir instead of prepending
-	// prepend users logged in to the filename
+	// add extra dir with users logged in to the filename
 	snapCmd.Flags().BoolVar(&snapCmdOpts.OutDirUsers,
 		"users", util.EnvVarBool("SNAP_FILE_USERS", false),
-		"(Optional) Prepend Logged in Users to auto-generated filename - Will be ignored if '--snap-file' is used")
+		"(Optional) Append Logged in Users to Output Directory - Will be ignored if '--file' is used")
 
-	// TODO: Upload flag, or mark for upload
+	// Upload flag to mark for upload
+	snapCmd.Flags().BoolVar(&snapCmdOpts.UploadAfterSuccess,
+		"upload", util.EnvVarBool("SNAP_UPLOAD_AFTER_SUCCESS", false),
+		"(Optional) Upload the image file after creation")
+
+	// Cleanup flag to mark for upload
+	snapCmd.Flags().BoolVar(&snapCmdOpts.CleanupAfterUpload,
+		"cleanup", util.EnvVarBool("SNAP_CLEANUP_AFTER_UPLOAD", false),
+		"(Optional) Remove the file after successful upload - Ignored unless using `--upload`")
 }
 
 // SnapCmdRunE runs the snap command
@@ -230,10 +239,20 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 	if err != nil {
 		return util.WrapError(err, funcTag, "running command")
 	}
+	logrus.Infof("Snapped %s", outFilePath)
 
-	// TODO: if upload required, call the upload command!
+	// if upload required, call the upload command!
+	if opts.UploadAfterSuccess {
+		err = UploadCmdRunE(ropts, &UploadCmdOptions{
+			InDir:               opts.OutDir,
+			InFileOverride:      outFileName,
+			CleanupAfterSuccess: opts.CleanupAfterUpload,
+		})
+		if err != nil {
+			return util.WrapError(err, funcTag, "uploading after success")
+		}
+	}
 
 	// done
-	logrus.Infof("Snapped %s", outFilePath)
 	return nil
 }

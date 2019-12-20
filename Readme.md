@@ -47,6 +47,8 @@ SNAP_DIR=
 SNAP_FILE=
 SNAP_FILE_FORMAT=
 SNAP_FILE_USERS=
+SNAP_UPLOAD_AFTER_SUCCESS=
+SNAP_CLEANUP_AFTER_UPLOAD=
 ```
 
 These OPTIONAL variables apply to the `upload` command flags:
