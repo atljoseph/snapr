@@ -7,6 +7,7 @@ Works on Linux and Mac computers.
 ## TODO
 
 - Test and document with PAM and Crontab (exit code 0 for pam)
+- Todo Permissions override for mkdir functionality
 - AWS Upload - do not clean up if not successful
 - Add Download Command and tests
 - Add List Command and tests to list capture devices
@@ -85,6 +86,13 @@ If a user is not iin the `video` group, then they need to be added:
 ```
 sudo adduser <user> video
 ```
+
+Also, this can help with regards to storage direcory permissions when potentially multiple users:
+```
+sudo chmod -R 0777 /output/dir
+```
+
+Also helps tp have all your directories set up before hand with proper permissions.
 
 ## Test
 
