@@ -63,16 +63,23 @@ func TestCommandUpload(t *testing.T) {
 	defer cleanupTestDir(testTempDir)
 
 	// ensure a test file exists
-	testFilePath := "t_test.jpg"
-	_, err = copyFile(testFilePath, filepath.Join(testTempDir, testFilePath))
+	testFile1 := "t_test.jpg"
+	_, err = copyFile(testFile1, filepath.Join(testTempDir, testFile1))
 	if err != nil {
 		t.Errorf("could not copy test image file")
 	}
 
 	// ensure another test file exists
-	_, err = copyFile(testFilePath, filepath.Join(testTempDir, testFilePath+".jpg"))
+	testFile2 := "t_testy.jpg"
+	_, err = copyFile(testFile1, filepath.Join(testTempDir, testFile2))
 	if err != nil {
 		t.Errorf("could not copy test image file")
+	}
+
+	// keep these for use below when confirming
+	testFiles := []string{
+		testFile1,
+		testFile2,
 	}
 
 	// loop through aand run tests
@@ -104,8 +111,20 @@ func TestCommandUpload(t *testing.T) {
 
 			// TODO: check all uploaded files (when multiples)
 			var filesToConfirm []string
-			filePath := filepath.Join(test.cmdOpts.InDir, test.cmdOpts.InFileOverride)
-			filesToConfirm = append(filesToConfirm, filePath)
+
+			if len(test.cmdOpts.InFileOverride) > 0 {
+				filesToConfirm = append(filesToConfirm, test.cmdOpts.InFileOverride)
+			} else {
+				// assume anything below 1 is same as 1
+				// if more files, append them all, until the milit
+				if test.cmdOpts.UploadLimit > 1 {
+					for _, testFile := range testFiles {
+						if len(filesToConfirm) < test.cmdOpts.UploadLimit {
+							filesToConfirm = append(filesToConfirm, testFile)
+						}
+					}
+				}
+			}
 
 			// get a new aws session
 			s, err := util.NewAwsSession()
@@ -138,9 +157,10 @@ func TestCommandUpload(t *testing.T) {
 			for _, fileToConfirm := range filesToConfirm {
 				// stat each file
 				// if no error, then there is a problem
+				fileToConfirm := filepath.Join(testTempDir, fileToConfirm)
 				_, err := os.Stat(fileToConfirm)
 				if err != nil {
-					// ignore this error if we are uploading
+					// ignore this error if we are cleaning up after uploading
 					if test.cmdOpts.CleanupAfterSuccess {
 						continue
 					}
