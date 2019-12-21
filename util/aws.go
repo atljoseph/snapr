@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -40,24 +41,21 @@ func CheckAwsFileExists(s *session.Session, key string) (bool, error) {
 }
 
 // SendToAws sends a single file to an AWS S3 bucket
-func SendToAws(s *session.Session, filePath string) (string, error) {
+func SendToAws(s *session.Session, baseDirPth string, waffle WalkedFile) (string, error) {
 	funcTag := "SendToAws"
 
 	// Open the file for use
-	file, err := os.Open(filePath)
+	file, err := os.Open(waffle.Path)
 	if err != nil {
 		return "", WrapError(err, funcTag, "opening file")
 	}
 	defer file.Close()
 
-	// stat the file for some info
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return "", WrapError(err, funcTag, "stat file")
-	}
+	// determine the aws path key
+	key := strings.ReplaceAll(waffle.Path, baseDirPth+"/", "")
 
 	// Get file size and read the file content into a buffer
-	fileSize := fileInfo.Size()
+	fileSize := waffle.FileInfo.Size()
 	buffer := make([]byte, fileSize)
 	file.Read(buffer)
 
@@ -65,7 +63,7 @@ func SendToAws(s *session.Session, filePath string) (string, error) {
 	// of the file you're uploading.
 	_, err = s3.New(s).PutObject(&s3.PutObjectInput{
 		Bucket:             aws.String(os.Getenv("S3_BUCKET")),
-		Key:                aws.String(fileInfo.Name()),
+		Key:                aws.String(key),
 		ACL:                aws.String("private"),
 		Body:               bytes.NewReader(buffer),
 		ContentLength:      aws.Int64(fileSize),
@@ -78,5 +76,5 @@ func SendToAws(s *session.Session, filePath string) (string, error) {
 	}
 
 	// return if no error
-	return fileInfo.Name(), nil
+	return key, nil
 }

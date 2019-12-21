@@ -207,10 +207,10 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	// loop to upload the files
 	for _, file := range filteredFiles {
 
-		logrus.Infof("Uploading %s %+v", file.Path, filteredFiles)
+		logrus.Infof("Uploading %s %+v", file.Path, file)
 
 		// send to AWS
-		key, err := util.SendToAws(s, file.Path)
+		key, err := util.SendToAws(s, opts.InDir, file)
 		if err != nil {
 			return util.WrapError(err, funcTag, "sending file to aws")
 		}

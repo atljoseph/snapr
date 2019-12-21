@@ -1,8 +1,11 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/sirupsen/logrus"
 )
 
 type WalkedFile struct {
@@ -15,7 +18,8 @@ func WalkFiles(walkDir string) (files []WalkedFile, err error) {
 	funcTag := "WalkFiles"
 	err = filepath.Walk(walkDir, WalkAllFilesHelper(&files))
 	if err != nil {
-		err = WrapError(err, funcTag, "walking files")
+		err = WrapError(err, funcTag, fmt.Sprintf("walking files in %s", walkDir))
+		logrus.Warnf("walking helper error: %s", err)
 		return
 	}
 	return

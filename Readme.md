@@ -7,8 +7,9 @@ Works on Linux and Mac computers.
 ## TODO
 
 - Test and document with PAM and Crontab (exit code 0 for pam)
-- Add List Command and tests to list capture devices
+- AWS Upload - do not clean up if not successful
 - Add Download Command and tests
+- Add List Command and tests to list capture devices
 
 ## Build
 
@@ -75,6 +76,15 @@ True
 ``` 
 
 To use a different file, like `.prod.env`, see the `Build` section (below).
+
+## User Permissions
+
+Can run this as `sudo`, but also as other users.
+
+If a user is not iin the `video` group, then they need to be added:
+```
+sudo adduser <user> video
+```
 
 ## Test
 

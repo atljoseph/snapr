@@ -58,7 +58,7 @@ var snapCommandTests = []snapTest{
 			OutFileOverride: "test.jpg",
 			Format:          "png", // should not create with this fmt
 		}},
-	{"snap with upload", true,
+	{"snap with upload and no cleanup", true,
 		&cli.SnapCmdOptions{
 			OutFileOverride:    "toUpload.jpg",
 			UploadAfterSuccess: true,
@@ -68,6 +68,17 @@ var snapCommandTests = []snapTest{
 			OutFileOverride:    "toUploadAndRemove.jpg",
 			UploadAfterSuccess: true,
 			CleanupAfterUpload: true,
+		}},
+	{"snap with upload and users dir", true,
+		&cli.SnapCmdOptions{
+			OutDirUsers:        true,
+			UploadAfterSuccess: true,
+		}},
+	{"snap with upload and users dir and extra dir", true,
+		&cli.SnapCmdOptions{
+			OutDirExtra:        "extra",
+			OutDirUsers:        true,
+			UploadAfterSuccess: true,
 		}},
 }
 
@@ -115,6 +126,9 @@ func TestCommandSnap(t *testing.T) {
 		// continue, process, and reset for next test
 		// if we make it into this block, then there should be a file
 		if err == nil {
+
+			// order is important for these folders
+
 			// add the extra dir if the extra dir is specified
 			if len(test.cmdOpts.OutDirExtra) > 0 {
 				testOutDir = filepath.Join(testOutDir, test.cmdOpts.OutDirExtra)
@@ -131,7 +145,7 @@ func TestCommandSnap(t *testing.T) {
 			files, err := util.WalkFiles(testOutDir)
 			// err = filepath.Walk(walkDir, util.WalkAllFilesHelper(&files))
 			if err != nil {
-				t.Errorf(wrapSnapTestError(test, fmt.Sprintf("walking dir %s", testOutDir)))
+				t.Errorf(wrapSnapTestError(test, fmt.Sprintf("walking dir: %s: %s", testOutDir, err)))
 			}
 
 			// ensure at least one file

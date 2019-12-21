@@ -139,23 +139,9 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 	var err error
 
 	// get the abs dir path
-	opts.OutDir, err = filepath.Abs(opts.OutDir)
+	outDirPath, err := filepath.Abs(opts.OutDir)
 	if err != nil {
-		logrus.Warnf("cannot convert path to absolute dir path: %s", opts.OutDir)
-	}
-
-	// only do this if indir is empty
-	if len(opts.OutDir) == 0 {
-		// get the abs file path
-		opts.OutFileOverride, err = filepath.Abs(opts.OutFileOverride)
-		if err != nil {
-			logrus.Warnf("cannot convert path to absolute file path: %s", opts.OutFileOverride)
-		}
-	}
-
-	// extra sub-directory where the output file will go
-	if len(opts.OutDirExtra) > 0 {
-		opts.OutDir = filepath.Join(opts.OutDir, opts.OutDirExtra)
+		logrus.Warnf("cannot convert path to absolute dir path: %s", outDirPath)
 	}
 
 	// extra sub-directory for the users output
@@ -168,19 +154,36 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 		}
 
 		// add the users output
-		opts.OutDir = filepath.Join(opts.OutDir, usersOutput)
+		outFileName = filepath.Join(usersOutput, outFileName)
+	}
+
+	// extra sub-directory where the output file will go
+	// goes in directory path BEFORE users output (above)
+	if len(opts.OutDirExtra) > 0 {
+		outFileName = filepath.Join(opts.OutDirExtra, outFileName)
 	}
 
 	// the complete out dir and file path
-	outFilePath := fmt.Sprintf("%s/%s", opts.OutDir, outFileName)
+	outFilePath := fmt.Sprintf("%s/%s", outDirPath, outFileName)
 	// outFilePath = strings.ReplaceAll(outFilePath, "//", "/")
 	logrus.Infof("Snapping %s", outFilePath)
 
 	// ensure output dir exists
-	err = os.MkdirAll(opts.OutDir, 0700)
+	mkdir := filepath.Dir(outFilePath)
+	logrus.Infof("Ensuring Directory: %s", mkdir)
+	err = os.MkdirAll(mkdir, 0700)
 	if err != nil {
 		return util.WrapError(err, funcTag, "mkdir for outFileDir")
 	}
+
+	// // only do this if indir is empty
+	// if len(opts.OutDir) == 0 {
+	// 	// get the abs file path
+	// 	opts.OutFileOverride, err = filepath.Abs(opts.OutFileOverride)
+	// 	if err != nil {
+	// 		logrus.Warnf("cannot convert path to absolute file path: %s", opts.OutFileOverride)
+	// 	}
+	// }
 
 	// input device driver
 	driverType := "-f "
@@ -243,11 +246,13 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 
 	// if upload required, call the upload command!
 	if opts.UploadAfterSuccess {
-		err = UploadCmdRunE(ropts, &UploadCmdOptions{
+		uOpts := &UploadCmdOptions{
 			InDir:               opts.OutDir,
 			InFileOverride:      outFileName,
 			CleanupAfterSuccess: opts.CleanupAfterUpload,
-		})
+		}
+		logrus.Infof("Running Upload Command %+v", uOpts)
+		err = UploadCmdRunE(ropts, uOpts)
 		if err != nil {
 			return util.WrapError(err, funcTag, "uploading after success")
 		}
