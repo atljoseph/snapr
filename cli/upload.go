@@ -72,7 +72,7 @@ func init() {
 		fmt.Sprintf("(Optional) Upload Formats (comma delimited) - Ignored if using '--file' - Supported Formats: [%s]", supportedFormats))
 
 	// upload file limit
-	snapCmd.Flags().IntVar(&uploadCmdOpts.UploadLimit,
+	uploadCmd.Flags().IntVar(&uploadCmdOpts.UploadLimit,
 		"limit", util.EnvVarInt("UPLOAD_LIMIT", 1),
 		"(Optional) Limit the number of files to upload in any one operation - Ignored if using '--file'")
 
