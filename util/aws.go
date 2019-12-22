@@ -93,16 +93,18 @@ func SendToS3(s3Client *s3.S3, baseDirPth string, waffle WalkedFile) (string, er
 // func DownloadBucket
 
 // S3ObjectsByKey sends a single file to an AWS S3 bucket
-func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, error) {
+func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, []string, error) {
 	funcTag := "S3ObjectsByKey"
 
 	// build the input
 	query := &s3.ListObjectsV2Input{
-		Bucket: aws.String(EnvVarString("S3_BUCKET", "")),
-		Prefix: aws.String(key),
+		Bucket:    aws.String(EnvVarString("S3_BUCKET", "")),
+		Prefix:    aws.String(key),
+		Delimiter: aws.String("/"),
 	}
 
-	var results []*s3.Object
+	var files []*s3.Object
+	var folders []string
 
 	// syncronously cycle through until all are returned (not truncated response)
 	for {
@@ -113,18 +115,24 @@ func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, error) {
 			if aerr, ok := err.(awserr.Error); ok {
 				switch aerr.Code() {
 				case s3.ErrCodeNoSuchBucket:
-					return results, WrapError(aerr, funcTag, s3.ErrCodeNoSuchBucket)
+					return files, folders, WrapError(aerr, funcTag, s3.ErrCodeNoSuchBucket)
 				default:
-					return results, WrapError(aerr, funcTag, "unspecified error; ok")
+					return files, folders, WrapError(aerr, funcTag, "unspecified error; ok")
 				}
 			} else {
-				return results, WrapError(aerr, funcTag, "unspecified error; not ok")
+				return files, folders, WrapError(aerr, funcTag, "unspecified error; not ok")
 			}
 		}
+		logrus.Infof("Fetched %+v", response)
 
-		// append the results
-		for _, o := range response.Contents {
-			results = append(results, o)
+		// yank the files
+		for _, file := range response.Contents {
+			files = append(files, file)
+		}
+
+		// yank the directories
+		for _, dir := range response.CommonPrefixes {
+			folders = append(folders, *dir.Prefix)
 		}
 
 		logrus.Infof("Fetched %d results", len(response.Contents))
@@ -134,13 +142,13 @@ func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, error) {
 
 		// if truncated, break with all the results
 		if !*response.IsTruncated {
-			logrus.Infof("Done fetching. %d total results", len(results))
+			logrus.Infof("Done fetching. %d total results", len(files))
 			break
 		}
 	}
 
 	// return if no error
-	return results, nil
+	return files, folders, nil
 }
 
 // DownloadS3Object downaloads a single object from aws s3 bucket

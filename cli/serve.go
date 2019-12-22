@@ -77,7 +77,8 @@ func init() {
 
 // Page is the page in a browser
 type Page struct {
-	Images []Image
+	Folders []Folder
+	Images  []Image
 }
 
 // Image is a wrapper for an aws image
@@ -86,10 +87,21 @@ type Image struct {
 	Key    string
 }
 
+// Folder is a wrapper for an aws folder
+type Folder struct {
+	Key string
+	URL string
+}
+
 // PageTemplate describes how the page should look
 var PageTemplate string = `<!DOCTYPE html>
 <html lang="en"><head></head>
 <body>
+	{{range .Folders}}
+	<p>
+		<a href="{{.URL}}">{{.Key}}</a>
+	</p>
+	{{end}}
 	{{range .Images}}
 	<span>
 		<p>{{.Key}}</p>
@@ -104,7 +116,9 @@ func ServeCmdGetHandler(opts *ServeCmdOptions) func(w http.ResponseWriter, r *ht
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method == http.MethodGet {
-			// fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
+
+			// TODO: get the key/dir from the url
+
 			// get a new s3 client
 			awsSesh, s3Client, err := util.NewS3Client()
 			if err != nil {
@@ -113,7 +127,7 @@ func ServeCmdGetHandler(opts *ServeCmdOptions) func(w http.ResponseWriter, r *ht
 			}
 
 			// get the object list
-			objects, err := util.S3ObjectsByKey(s3Client, opts.S3Dir)
+			files, folders, err := util.S3ObjectsByKey(s3Client, opts.S3Dir)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "get bucket contents info by key")
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -127,7 +141,12 @@ func ServeCmdGetHandler(opts *ServeCmdOptions) func(w http.ResponseWriter, r *ht
 
 			// build the page's images
 			p := &Page{}
-			for _, obj := range objects {
+
+			for _, dir := range folders {
+				p.Folders = append(p.Folders, Folder{Key: dir, URL: "/test/" + dir})
+			}
+
+			for _, obj := range files {
 
 				imgBytes, err := util.DownloadS3Object(awsSesh, *obj.Key)
 				if err != nil {
