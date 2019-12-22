@@ -2,6 +2,9 @@
 # Snapr CLI
 
 Snaps a webcam image using `ffmpeg`.
+
+Includes a command that enables you to securely browse a Private or Public S3 Bucket in your browser. 
+
 Works on Linux and Mac computers.
 
 ## TODO
