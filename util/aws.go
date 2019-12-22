@@ -90,7 +90,8 @@ func SendToS3(s3Client *s3.S3, baseDirPth string, waffle WalkedFile) (string, er
 	return key, nil
 }
 
-// func DownloadBucket
+// S3Delimiter is the folder delimiter (for us) in AWS S3
+var S3Delimiter = "/"
 
 // S3ObjectsByKey sends a single file to an AWS S3 bucket
 func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, []string, error) {
@@ -102,6 +103,8 @@ func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, []string, error)
 		Prefix:    aws.String(key),
 		Delimiter: aws.String("/"),
 	}
+
+	logrus.Infof("Fetching from: %s::%s", *query.Bucket, *query.Prefix)
 
 	var files []*s3.Object
 	var folders []string
@@ -123,7 +126,7 @@ func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, []string, error)
 				return files, folders, WrapError(aerr, funcTag, "unspecified error; not ok")
 			}
 		}
-		logrus.Infof("Fetched %+v", response)
+		// logrus.Infof("Fetched %+v", response)
 
 		// yank the files
 		for _, file := range response.Contents {
