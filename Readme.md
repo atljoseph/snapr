@@ -29,6 +29,7 @@ For specific OS:
 ```
 GOOS=linux go build snapr
 GOOS=darwin go build snapr
+GOOS=windows go build snapr (`snap` command not supported ... yet)
 ```
 
 To use a custom `.env` file:
