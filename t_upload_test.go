@@ -127,7 +127,7 @@ func TestCommandUpload(t *testing.T) {
 			}
 
 			// get a new aws session
-			s, err := util.NewS3Client()
+			_, s3Client, err := util.NewS3Client()
 			if err != nil {
 				logrus.Warnf("get aws session: %s", err)
 			}
@@ -139,7 +139,7 @@ func TestCommandUpload(t *testing.T) {
 				fileToConfirm = filepath.Base(fileToConfirm)
 
 				// check if the file exists in aws
-				exists, err := util.CheckS3FileExists(s, fileToConfirm)
+				exists, err := util.CheckS3FileExists(s3Client, fileToConfirm)
 				if err != nil {
 					logrus.Warnf("check file exists in aws: %s", err)
 				}
