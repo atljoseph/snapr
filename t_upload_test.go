@@ -89,7 +89,7 @@ func TestCommandUpload(t *testing.T) {
 		test.cmdOpts.InDir = testTempDir // filepath.Join(testTempDir, test.description)
 
 		// run test command
-		err := cli.UploadCmdRunE(&cli.RootCmdOptions{}, test.cmdOpts)
+		err := cli.UploadCmdRunE(testRootCmdOpts, test.cmdOpts)
 		logrus.Infof("Command Ran")
 
 		// what was expected vs. what was got?
@@ -127,7 +127,7 @@ func TestCommandUpload(t *testing.T) {
 			}
 
 			// get a new aws session
-			_, s3Client, err := util.NewS3Client()
+			_, s3Client, err := util.NewS3Client(testRootCmdOpts.S3Config)
 			if err != nil {
 				logrus.Warnf("get aws session: %s", err)
 			}
@@ -139,7 +139,7 @@ func TestCommandUpload(t *testing.T) {
 				fileToConfirm = filepath.Base(fileToConfirm)
 
 				// check if the file exists in aws
-				exists, err := util.CheckS3FileExists(s3Client, fileToConfirm)
+				exists, err := util.CheckS3FileExists(s3Client, testRootCmdOpts.Bucket, fileToConfirm)
 				if err != nil {
 					logrus.Warnf("check file exists in aws: %s", err)
 				}

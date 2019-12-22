@@ -9,71 +9,7 @@ import (
 	"text/template"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
-
-// ServeCmdOptions options
-type ServeCmdOptions struct {
-	WorkDir string
-	S3Dir   string
-	Port    int
-	Host    string
-	Formats []string
-}
-
-// serve command
-var (
-	serveCmdOpts = &ServeCmdOptions{}
-	serveCmd     = &cobra.Command{
-		Use:   "serve",
-		Short: "Snapr is a snapper turtle.",
-		Long:  `Do you like turtles?`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			serveCmdOpts = serveCmdTransformPositionalArgs(args, serveCmdOpts)
-			return ServeCmdRunE(rootCmdOpts, serveCmdOpts)
-		},
-	}
-)
-
-// serveCmdTransformPositionalArgs adds the positional string args
-// from the command to the options struct (for DI)
-// care should be taken to not use the same options here as in flags, etc
-func serveCmdTransformPositionalArgs(args []string, opts *ServeCmdOptions) *ServeCmdOptions {
-	// if len(args) > 0 {
-	// // can use env vars, too!
-	// 	opts.Something = args[0]
-	// }
-	return opts
-}
-
-func init() {
-	// add command to root
-	rootCmd.AddCommand(serveCmd)
-
-	// this is appended to `dir`if set
-	serveCmd.Flags().StringVar(&serveCmdOpts.S3Dir,
-		"s3-dir", util.EnvVarString("SERVE_S3_DIR", ""),
-		"(Optional) Base S3 Directory Key to browse")
-
-	// this is where the files get written to
-	// default to calling user's home directory
-	// TODO: default below
-	serveCmd.Flags().StringVar(&serveCmdOpts.WorkDir,
-		"dir", util.EnvVarString("SERVE_DIR", ""),
-		"(Recommended) This will eventually be the Download and Upload directory")
-
-	// file override ... optional
-	// TODO: default below
-	serveCmd.Flags().IntVar(&serveCmdOpts.Port,
-		"port", util.EnvVarInt("SERVE_PORT", 8080),
-		"(Override) Serve Port")
-
-	// format override
-	supportedFormats := strings.Join(util.SupportedCaptureFormats(), ",")
-	serveCmd.Flags().StringSliceVar(&serveCmdOpts.Formats,
-		"format", util.EnvVarStringSlice("SERVE_FILE_FORMATS", ""),
-		fmt.Sprintf("(Override) Serve Browsing Formats - Supported Formats: [%s]", supportedFormats))
-}
 
 // Page is the page in a browser
 type Page struct {
@@ -114,10 +50,10 @@ var PageTemplate string = `<!DOCTYPE html>
 </body></html>`
 
 // ServeCmdGetHandler is a proving ground right meow
-func ServeCmdGetHandler(opts *ServeCmdOptions) func(w http.ResponseWriter, r *http.Request) {
+func ServeCmdGetHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w http.ResponseWriter, r *http.Request) {
 	funcTag := "ServeCmdGetHandler"
 	return func(w http.ResponseWriter, r *http.Request) {
-		logrus.Infof("REQUEST: %s, %s, %s", r.Method, r.URL, r.RequestURI)
+		// logrus.Infof("REQUEST: %s, %s, %s", r.Method, r.URL, r.RequestURI)
 
 		if r.Method == http.MethodGet {
 
@@ -147,10 +83,10 @@ func ServeCmdGetHandler(opts *ServeCmdOptions) func(w http.ResponseWriter, r *ht
 					}
 				}
 			}
-			logrus.Infof("QP: %s", qpS3SubKey)
+			// logrus.Infof("QP: %s", qpS3SubKey)
 
 			// get a new s3 client
-			awsSesh, s3Client, err := util.NewS3Client()
+			awsSesh, s3Client, err := util.NewS3Client(ropts.S3Config)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "get a new s3 client")
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -180,7 +116,7 @@ func ServeCmdGetHandler(opts *ServeCmdOptions) func(w http.ResponseWriter, r *ht
 				linkKey := strings.ReplaceAll(commonKey, cliInputDir, "")
 				keysSlice := strings.Split(commonKey, util.S3Delimiter)
 				displayKey := keysSlice[len(keysSlice)-2]
-				logrus.Infof("LINK KEY: %s (%s), %s", commonKey, cliInputDir, displayKey)
+				// logrus.Infof("LINK KEY: %s (%s), %s", commonKey, cliInputDir, displayKey)
 				p.Folders = append(p.Folders, Folder{Key: linkKey, DisplayKey: displayKey})
 			}
 
@@ -213,23 +149,13 @@ func ServeCmdGetHandler(opts *ServeCmdOptions) func(w http.ResponseWriter, r *ht
 	}
 }
 
-func corsHandler(h http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "OPTIONS" {
-			//handle preflight in here
-		} else {
-			h.ServeHTTP(w, r)
-		}
-	}
-}
-
 // ServeCmdRunE runs the serve command
 // it is exported for testing
 func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
 	funcTag := "ServeCmdRunE"
 	logrus.Infof(funcTag)
 
-	http.HandleFunc("/", ServeCmdGetHandler(opts))
+	http.HandleFunc("/", ServeCmdGetHandler(ropts, opts))
 
 	hostNPort := fmt.Sprintf("%s:%d", "localhost", opts.Port)
 	logrus.Warnf("Go to `http://%s` in your browser ...", hostNPort)

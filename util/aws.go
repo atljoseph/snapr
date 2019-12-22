@@ -15,15 +15,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// S3Accessor describes how to access a bucket in aws s3
+type S3Accessor struct {
+	Bucket string
+	Region string
+	Token  string
+	Secret string
+}
+
 // NewS3Client gets a new AWS session in a structured way
-func NewS3Client() (*session.Session, *s3.S3, error) {
+func NewS3Client(config *S3Accessor) (*session.Session, *s3.S3, error) {
 	funcTag := "NewS3Client"
 
 	// new AWS config
 	cfg := aws.NewConfig().
-		WithRegion(EnvVarString("S3_REGION", "")).
-		WithCredentials(credentials.NewStaticCredentials(
-			EnvVarString("S3_TOKEN", ""), EnvVarString("S3_SECRET", ""), ""))
+		WithRegion(config.Region).
+		WithCredentials(credentials.NewStaticCredentials(config.Token, config.Secret, ""))
 
 	// get a new AWS session
 	sesh, err := session.NewSession(cfg)
@@ -35,13 +42,13 @@ func NewS3Client() (*session.Session, *s3.S3, error) {
 }
 
 // CheckS3FileExists confirms that a file exists in an AWS S3
-func CheckS3FileExists(s3Client *s3.S3, key string) (bool, error) {
+func CheckS3FileExists(s3Client *s3.S3, bucket, key string) (bool, error) {
 	funcTag := "CheckS3FileExists"
 
 	// logrus.Infof("Check Key: %s", key)
 
 	_, err := s3Client.HeadObject(&s3.HeadObjectInput{
-		Bucket: aws.String(EnvVarString("S3_BUCKET", "")),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -52,7 +59,7 @@ func CheckS3FileExists(s3Client *s3.S3, key string) (bool, error) {
 }
 
 // SendToS3 sends a single file to an AWS S3 bucket
-func SendToS3(s3Client *s3.S3, baseDirPth string, waffle WalkedFile) (string, error) {
+func SendToS3(s3Client *s3.S3, bucket, baseDirPth string, waffle WalkedFile) (string, error) {
 	funcTag := "SendToS3"
 
 	// Open the file for use
@@ -73,7 +80,7 @@ func SendToS3(s3Client *s3.S3, baseDirPth string, waffle WalkedFile) (string, er
 	// Config settings: this is where you choose the bucket, filename, content-type etc.
 	// of the file you're uploading.
 	_, err = s3Client.PutObject(&s3.PutObjectInput{
-		Bucket:             aws.String(EnvVarString("S3_BUCKET", "")),
+		Bucket:             aws.String(bucket),
 		Key:                aws.String(key),
 		ACL:                aws.String("private"),
 		Body:               bytes.NewReader(buffer),

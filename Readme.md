@@ -9,11 +9,11 @@ Works on Linux and Mac computers.
 
 ## TODO
 
-- Add Serve command functionality
+- Upload/Snap - add base Upload Key
+- Improve Serve command - (Move/rename, Soft/Hard delete, download, upload) & implement functionality from SERVE_FILE_FORMATS
 - Test and document with PAM and Crontab (exit code 0 for pam)
 - Todo Permissions override for mkdir functionality
-- AWS Upload - do not clean up if not successful
-- Add List Command and tests to list capture devices
+- Add Device List Command and tests to list capture devices
 
 ## Build
 
@@ -62,6 +62,13 @@ UPLOAD_FILE=
 UPLOAD_CLEANUP_AFTER_SUCCESS=
 UPLOAD_FORMATS=
 UPLOAD_LIMIT=
+```
+
+These OPTIONAL variables apply to the `serve` command flags:
+```
+SERVE_S3_DIR=
+SERVE_DIR=
+SERVE_PORT=
 ```
 
 These REQUIRED variables are used for AWS:

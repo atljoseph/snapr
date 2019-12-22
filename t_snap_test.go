@@ -90,7 +90,7 @@ func testCommandSnap(t *testing.T, tests []snapTest) {
 		testOutFile := test.cmdOpts.OutFile
 
 		// run test command
-		err = cli.SnapCmdRunE(&cli.RootCmdOptions{}, test.cmdOpts)
+		err = cli.SnapCmdRunE(testRootCmdOpts, test.cmdOpts)
 		logrus.Infof("Command Ran")
 
 		// what was expected vs. what was got?
