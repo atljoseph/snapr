@@ -22,21 +22,21 @@ type uploadTest struct {
 var uploadCommandTests = []uploadTest{
 	{"explicitly defined file when does not exist", false,
 		&cli.UploadCmdOptions{
-			InFileOverride: "xyz.jpg",
+			InFile: "xyz.jpg",
 		}},
 	{"explicitly defined file when exists", true,
 		&cli.UploadCmdOptions{
-			InFileOverride: "t_test.jpg",
+			InFile: "t_test.jpg",
 		}},
 	{"mismatched format, should fail", false,
 		&cli.UploadCmdOptions{
-			InFileOverride: "t_test.jpg",
-			Formats:        []string{"png"},
+			InFile:  "t_test.jpg",
+			Formats: []string{"png"},
 		}},
 	{"specific format", true,
 		&cli.UploadCmdOptions{
-			InFileOverride: "t_test.jpg",
-			Formats:        []string{"jpg"},
+			InFile:  "t_test.jpg",
+			Formats: []string{"jpg"},
 		}},
 	{"directory without file, should upload one test file", true,
 		&cli.UploadCmdOptions{}},
@@ -112,8 +112,8 @@ func TestCommandUpload(t *testing.T) {
 			// TODO: check all uploaded files (when multiples)
 			var filesToConfirm []string
 
-			if len(test.cmdOpts.InFileOverride) > 0 {
-				filesToConfirm = append(filesToConfirm, test.cmdOpts.InFileOverride)
+			if len(test.cmdOpts.InFile) > 0 {
+				filesToConfirm = append(filesToConfirm, test.cmdOpts.InFile)
 			} else {
 				// assume anything below 1 is same as 1
 				// if more files, append them all, until the milit
@@ -127,7 +127,7 @@ func TestCommandUpload(t *testing.T) {
 			}
 
 			// get a new aws session
-			s, err := util.NewAwsSession()
+			s, err := util.NewS3Client()
 			if err != nil {
 				logrus.Warnf("get aws session: %s", err)
 			}
@@ -139,7 +139,7 @@ func TestCommandUpload(t *testing.T) {
 				fileToConfirm = filepath.Base(fileToConfirm)
 
 				// check if the file exists in aws
-				exists, err := util.CheckAwsFileExists(s, fileToConfirm)
+				exists, err := util.CheckS3FileExists(s, fileToConfirm)
 				if err != nil {
 					logrus.Warnf("check file exists in aws: %s", err)
 				}

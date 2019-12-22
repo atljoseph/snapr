@@ -4,6 +4,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 // EnvVarString returns the string input or the default if not set
@@ -29,11 +31,12 @@ func EnvVarInt(envKey string, defaultValue int) int {
 	// get the env string value
 	strValue := os.Getenv(envKey)
 	// if set
-	if len(strValue) == 0 {
+	if len(strValue) > 0 {
 		// attempt to convert to int
 		convValue, err := strconv.Atoi(strValue)
 		// if error, default to 0 (if not already done)
 		if err != nil {
+			logrus.Warnf(err.Error())
 			convValue = 0
 		}
 		// assign the int value

@@ -6,10 +6,10 @@ Works on Linux and Mac computers.
 
 ## TODO
 
+- Add Serve command functionality
 - Test and document with PAM and Crontab (exit code 0 for pam)
 - Todo Permissions override for mkdir functionality
 - AWS Upload - do not clean up if not successful
-- Add Download Command and tests
 - Add List Command and tests to list capture devices
 
 ## Build
@@ -94,7 +94,7 @@ sudo chmod -R 0777 /output/dir
 
 Also helps tp have all your directories set up before hand with proper permissions.
 
-## Test
+## Testing
 
 To run tests to test the functionality of command scripts:
 ```
@@ -105,13 +105,20 @@ The test will create a temp directory to run test commands in, and then clean up
 
 To run just the `snap` command tests:
 ```
-go test -run="Snap"
+go test -run="SnapC"
 ```
 
 To run just the `upload` command tests:
 ```
-go test -run="Upload"
+go test -run="UploadC"
 ```
+
+To test a combination of the `snap` and `upload` commands:
+```
+go test -run="SnapU"
+```
+
+The `serve` command is not currently tested.
 
 ## Snap Command
 
@@ -119,11 +126,11 @@ To snap a webcam photo:
 ```
 snapr snap
 snapr snap --help
-snapr snap --device /dev/video1
-snapr snap --dir my/base/dir
-snapr snap --extra-dir my/sub/dir
+snapr snap --device=/dev/video1
+snapr snap --dir=my/base/dir
+snapr snap --extra-dir=my/sub/dir
 snapr snap --users
-snapr snap --format png
+snapr snap --format=png
 snapr snap --upload --cleanup
 ```
 
@@ -131,8 +138,20 @@ snapr snap --upload --cleanup
 
 To upload a photo to an AWS bucket:
 ```
-snapr upload --file my/in/file.ext
-snapr upload --file my/in/file.ext --cleanup
-snapr upload --dir my/base/dir 
-snapr upload --limit 10
+snapr upload --file=my/in/file.ext
+snapr upload --file=my/in/file.ext --cleanup
+snapr upload --dir=my/base/dir 
+snapr upload --limit=10
+```
+
+## Serve Command
+
+WORK IN PROGRESS
+
+Used to view files from a public or private S3 Bucket in the browser on your local computer.
+
+Use it like this:
+```
+snapr serve --s3-dir=cupcake
+snapr serve --port=8081
 ```

@@ -14,10 +14,13 @@ import (
 // UploadCmdOptions options
 type UploadCmdOptions struct {
 	InDir               string
-	InFileOverride      string
+	InFile              string
 	CleanupAfterSuccess bool
 	Formats             []string
 	UploadLimit         int
+	S3Dir               string
+	S3Bucket            string
+	S3Region            string
 }
 
 // upload command
@@ -50,13 +53,12 @@ func init() {
 	rootCmd.AddCommand(uploadCmd)
 
 	// this is where the files are pulled from
-	// default to the directory where the binary exists (pwd)
 	uploadCmd.Flags().StringVar(&uploadCmdOpts.InDir,
 		"dir", util.EnvVarString("UPLOAD_DIR", ""),
 		"(Optional) Upload Directory")
 
 	// file override ... optional
-	uploadCmd.Flags().StringVar(&uploadCmdOpts.InFileOverride,
+	uploadCmd.Flags().StringVar(&uploadCmdOpts.InFile,
 		"file", util.EnvVarString("UPLOAD_FILE", ""),
 		"(Optional) Upload File Path")
 
@@ -82,10 +84,10 @@ func init() {
 // it is exported for testing
 func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	funcTag := "upload"
-	logrus.Infof("Upload")
+	logrus.Infof(funcTag)
 
 	// get a new aws session
-	s, err := util.NewAwsSession()
+	_, s3Client, err := util.NewS3Client()
 	if err != nil {
 		return util.WrapError(err, funcTag, "get new aws session")
 	}
@@ -95,53 +97,35 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		return util.WrapError(fmt.Errorf("Validation Error"), funcTag, "choose an upload limit smaller than 100")
 	}
 
-	// TODO: ????? refactor
-	// if the file override is set
-	if len(opts.InFileOverride) > 0 {
-		// and the input dir is empty
-		if len(opts.InDir) == 0 {
-
-			// get the abs file path
-			absPath, err := filepath.Abs(opts.InFileOverride)
-			if err != nil {
-				logrus.Warnf("cannot convert path to absolute file path: %s", opts.InFileOverride)
-			}
-
-			// set these explicitly
-			opts.InDir = filepath.Dir(absPath)
-			opts.InFileOverride = filepath.Base(absPath)
-		}
-	} else {
-		// override is empty
-
-		// default the in dir if empty
-		if len(opts.InDir) == 0 {
-			opts.InDir, err = os.Getwd()
-			if err != nil {
-				return util.WrapError(err, funcTag, "cannot get pwd for InDir")
-			}
-		}
-
-		// get the abs dir path
-		opts.InDir, err = filepath.Abs(opts.InDir)
-		if err != nil {
-			return util.WrapError(err, funcTag, fmt.Sprintf("cannot convert path to absolute dir path: %s", opts.InDir))
-		}
-	}
-
+	// handle the dir and file inputs
+	// and get a list of files based on the inputs
 	var files []util.WalkedFile
+	if len(opts.InFile) > 0 {
+		// if the file override is set,
+		// ignore the walk and upload limit
 
-	// get the slice of walkedFiles
-	// if the file override is set, ignore the walk and upload limit
-	if len(opts.InFileOverride) > 0 {
+		// if dir is also set, join
+		if len(opts.InDir) > 0 {
+			opts.InFile = filepath.Join(opts.InDir, opts.InFile)
+		}
+
+		// get the abs file path
+		absPath, err := filepath.Abs(opts.InFile)
+		if err != nil {
+			logrus.Warnf("cannot convert path to absolute file path: %s", opts.InFile)
+		}
+
+		// set these explicitly
+		opts.InDir = filepath.Dir(absPath)
+		opts.InFile = filepath.Base(absPath)
 
 		// join the override file path with the dir
-		fullPath := filepath.Join(opts.InDir, opts.InFileOverride)
+		fullPath := filepath.Join(opts.InDir, opts.InFile)
 
 		// stat the path
 		fileInfo, err := os.Stat(fullPath)
 		if err != nil {
-			return util.WrapError(err, funcTag, "cannot stat file")
+			return util.WrapError(err, funcTag, "cannot stat path")
 		}
 
 		// ensure is a file
@@ -155,6 +139,35 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 			FileInfo: fileInfo,
 		})
 	} else {
+		// file override is empty
+
+		// default the in dir if empty
+		if len(opts.InDir) == 0 {
+			// default to the directory where the binary exists (pwd)
+			opts.InDir, err = os.Getwd()
+			if err != nil {
+				return util.WrapError(err, funcTag, "cannot get pwd for InDir")
+			}
+		}
+
+		// get the abs dir path
+		opts.InDir, err = filepath.Abs(opts.InDir)
+		if err != nil {
+			return util.WrapError(err, funcTag, fmt.Sprintf("cannot convert path to absolute dir path: %s", opts.InDir))
+		}
+
+		// stat the path
+		fileInfo, err := os.Stat(opts.InDir)
+		if err != nil {
+			return util.WrapError(err, funcTag, "cannot stat path")
+		}
+
+		// ensure is a dir
+		if !fileInfo.IsDir() {
+			return util.WrapError(fmt.Errorf("validation error"), funcTag, "dir provided is not a directory")
+		}
+
+		// get the slice of walkedFiles
 		// based on the indir, walk all files
 		files, err = util.WalkFiles(opts.InDir)
 		if err != nil {
@@ -196,11 +209,14 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		return util.WrapError(fmt.Errorf("Validation Error"), funcTag, "no files with specified format exist at target")
 	}
 
-	// chop off a slice of these equal to the limit input
+	// attempt to chop off a slice of these equal to the limit input
 	length := len(filteredFiles)
+	// if upload limit is greater than 1, take the minimum of the length of files and the limit
 	if opts.UploadLimit > 1 {
 		length = util.MinInt(opts.UploadLimit, len(filteredFiles))
 	}
+
+	// truncate filtered files
 	filteredFiles = filteredFiles[0:length]
 	logrus.Infof("Got %d files to upload", len(filteredFiles))
 
@@ -210,12 +226,11 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		logrus.Infof("Uploading %s %+v", file.Path, file)
 
 		// send to AWS
-		key, err := util.SendToAws(s, opts.InDir, file)
+		key, err := util.SendToS3(s3Client, opts.InDir, file)
 		if err != nil {
 			return util.WrapError(err, funcTag, "sending file to aws")
 		}
 
-		// done
 		logrus.Infof("Done uploading key: %s", key)
 
 		// after success, cleanup the files
@@ -228,7 +243,6 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 			}
 
 			logrus.Infof("Cleaned up: %s", file.Path)
-
 		}
 	}
 

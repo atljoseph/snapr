@@ -18,71 +18,51 @@ type snapTest struct {
 	cmdOpts         *cli.SnapCmdOptions
 }
 
-// define the tests
-// OutDir is set on all these programmatically (below)
-var snapCommandTests = []snapTest{
-	{"basic with dir and auto-generate file name", true,
-		&cli.SnapCmdOptions{}},
-	{"unsupported format", false,
-		&cli.SnapCmdOptions{
-			Format: "xyz",
-		}},
-	{"supported format", true,
-		&cli.SnapCmdOptions{
-			Format: "png",
-		}},
-	{"invalid device address", false,
-		&cli.SnapCmdOptions{
-			CaptureDeviceAddr: "fake/device",
-		}},
-	{"basic with extra dir", true,
-		&cli.SnapCmdOptions{
-			OutDirExtra: "extra",
-		}},
-	{"users dir with extra dir", true,
-		&cli.SnapCmdOptions{
-			OutDirExtra: "extra",
-			OutDirUsers: true,
-		}},
-	{"custom file name", true,
-		&cli.SnapCmdOptions{
-			OutFileOverride: "test.jpg",
-		}},
-	{"custom file name with extra dir", true,
-		&cli.SnapCmdOptions{
-			OutDirExtra:     "extra",
-			OutFileOverride: "test.jpg",
-		}},
-	{"custom file name with format", true,
-		&cli.SnapCmdOptions{
-			OutFileOverride: "test.jpg",
-			Format:          "png", // should not create with this fmt
-		}},
-	{"snap with upload and no cleanup", true,
-		&cli.SnapCmdOptions{
-			OutFileOverride:    "toUpload.jpg",
-			UploadAfterSuccess: true,
-		}},
-	{"snap with upload, then cleanup", true,
-		&cli.SnapCmdOptions{
-			OutFileOverride:    "toUploadAndRemove.jpg",
-			UploadAfterSuccess: true,
-			CleanupAfterUpload: true,
-		}},
-	{"snap with upload and users dir", true,
-		&cli.SnapCmdOptions{
-			OutDirUsers:        true,
-			UploadAfterSuccess: true,
-		}},
-	{"snap with upload and users dir and extra dir", true,
-		&cli.SnapCmdOptions{
-			OutDirExtra:        "extra",
-			OutDirUsers:        true,
-			UploadAfterSuccess: true,
-		}},
+func TestSnapCommand(t *testing.T) {
+	// define the tests
+	// OutDir is set on all these programmatically (below)
+	testCommandSnap(t, []snapTest{
+		{"basic with dir and auto-generate file name", true,
+			&cli.SnapCmdOptions{}},
+		{"unsupported format", false,
+			&cli.SnapCmdOptions{
+				Format: "xyz",
+			}},
+		{"supported format", true,
+			&cli.SnapCmdOptions{
+				Format: "png",
+			}},
+		{"invalid device address", false,
+			&cli.SnapCmdOptions{
+				CaptureDeviceAddr: "fake/device",
+			}},
+		{"basic with extra dir", true,
+			&cli.SnapCmdOptions{
+				OutDirExtra: "extra",
+			}},
+		{"users dir with extra dir", true,
+			&cli.SnapCmdOptions{
+				OutDirExtra: "extra",
+				OutDirUsers: true,
+			}},
+		{"custom file name", true,
+			&cli.SnapCmdOptions{
+				OutFile: "test.jpg",
+			}},
+		{"custom file name with extra dir", true,
+			&cli.SnapCmdOptions{
+				OutDirExtra: "extra",
+				OutFile:     "test.jpg",
+			}},
+		{"custom file name with format", true,
+			&cli.SnapCmdOptions{
+				OutFile: "test.jpg",
+				Format:  "png", // should not create with this fmt
+			}},
+	})
 }
 
-func TestCommandSnap(t *testing.T) {
+func testCommandSnap(t *testing.T, tests []snapTest) {
 
 	// ensure the temp directory exists
 	_, testTempDir, err := ensureTestDir("test-snap")
@@ -99,12 +79,15 @@ func TestCommandSnap(t *testing.T) {
 	}
 
 	// loop through aand run tests
-	for idx, test := range snapCommandTests {
+	for idx, test := range tests {
 		logrus.Infof("TEST %d (%s)", idx+1, test.description)
 
 		// set the output dir (was lazy)
 		test.cmdOpts.OutDir = filepath.Join(testTempDir, test.description)
-		testOutDir := test.cmdOpts.OutDir
+
+		// don't let these mutate
+		testOutDir := test.cmdOpts.OutDir // TODO: this is being ignored when custom file is used
+		testOutFile := test.cmdOpts.OutFile
 
 		// run test command
 		err = cli.SnapCmdRunE(&cli.RootCmdOptions{}, test.cmdOpts)
@@ -168,15 +151,17 @@ func TestCommandSnap(t *testing.T) {
 			}
 
 			// check for filename in test output
-			if len(test.cmdOpts.OutFileOverride) > 0 {
+			if len(testOutFile) > 0 {
 				// if custom file name, check for exact filename
-				if files[0].FileInfo.Name() != test.cmdOpts.OutFileOverride {
-					t.Errorf(wrapSnapTestError(test, fmt.Sprintf("output file name incorrect when explicitly supplied. expected '%s', got '%s'", test.cmdOpts.OutFileOverride, files[0].FileInfo.Name())))
+				toConfirm := filepath.Join(testOutDir, testOutFile)
+				if files[0].Path != toConfirm {
+					t.Errorf(wrapSnapTestError(test, fmt.Sprintf("output file name incorrect when explicitly supplied. expected '%s', got '%s'", toConfirm, files[0].Path)))
 				}
 			} else {
 				// get the extension and check it
-				if !strings.EqualFold(filepath.Ext(files[0].FileInfo.Name()), "."+test.cmdOpts.Format) {
-					t.Errorf(wrapSnapTestError(test, fmt.Sprintf("output file format incorrect. expected '%s', got '%s'", test.cmdOpts.Format, filepath.Ext(files[0].FileInfo.Name()))))
+				ext := filepath.Ext(files[0].FileInfo.Name())
+				if !strings.EqualFold(ext, "."+test.cmdOpts.Format) {
+					t.Errorf(wrapSnapTestError(test, fmt.Sprintf("output file format incorrect. expected '%s', got '%s'", test.cmdOpts.Format, ext)))
 				}
 			}
 
