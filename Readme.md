@@ -9,8 +9,11 @@ Works on Linux and Mac computers.
 
 ## TODO
 
-- Improve Serve command - (Move/rename, Soft/Hard delete, download, upload)
-- serve command - ignore file types other than specified - SERVE_FILE_FORMATS
+- serve command - for file types other than specified - SERVE_FILE_FORMATS - display cannot find, with link (below folders, above images)
+- serve command - download to work dir - for images and unknown files
+- serv command - add move/rename capability (batch?)
+- serv command - add soft/hard delete capability (batch?)
+- serve command - add upload capability
 - Make the tests clean up themselves on the s3?
 - Prod build - no debugging statements with sensitive info, DO NOT allow override of env provided from binary package
 - Dev build - allow override of env provided from binary package

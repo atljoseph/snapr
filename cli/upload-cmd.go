@@ -115,49 +115,49 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 	// TODO: order the files with the oldest first and newest last
 
-	// validate the formats input
-	// weirdness with the cobra lib and the []string var
-	if len(opts.Formats) == 0 || len(opts.Formats[0]) == 0 {
-		opts.Formats = util.SupportedCaptureFormats()
-	}
+	// // validate the formats input
+	// // weirdness with the cobra lib and the []string var
+	// if len(opts.Formats) == 0 || len(opts.Formats[0]) == 0 {
+	// 	opts.Formats = util.SupportedCaptureFormats()
+	// }
 
 	// filter out files without specific filename format
-	var filteredFiles []util.WalkedFile
-	for _, file := range files {
+	// var filteredFiles []util.WalkedFile
+	// for _, file := range files {
 
-		// get the file extension, and replace the dot (weirdness of this lib)
-		fileExt := strings.ReplaceAll(filepath.Ext(file.Path), ".", "")
+	// 	// get the file extension, and replace the dot (weirdness of this lib)
+	// 	fileExt := strings.ReplaceAll(filepath.Ext(file.Path), ".", "")
 
-		// filter formats
-		for _, format := range opts.Formats {
-			// if the format matches
-			if strings.EqualFold(fileExt, format) {
-				// append the file to the slice
-				filteredFiles = append(filteredFiles, file)
-			}
-		}
-	}
+	// 	// filter formats
+	// 	for _, format := range opts.Formats {
+	// 		// if the format matches
+	// 		if strings.EqualFold(fileExt, format) {
+	// 			// append the file to the slice
+	// 			filteredFiles = append(filteredFiles, file)
+	// 		}
+	// 	}
+	// }
 
-	logrus.Infof("Got %d files after filtering", len(filteredFiles))
+	// logrus.Infof("Got %d files after filtering", len(filteredFiles))
 
 	// if no files after filtering, error
-	if len(filteredFiles) == 0 {
-		return util.WrapError(fmt.Errorf("Validation Error"), funcTag, "no files with specified format exist at target")
+	if len(files) == 0 {
+		return util.WrapError(fmt.Errorf("Validation Error"), funcTag, "no files exist at the target")
 	}
 
 	// attempt to chop off a slice of these equal to the limit input
-	length := len(filteredFiles)
+	length := len(files)
 	// if upload limit is greater than 1, take the minimum of the length of files and the limit
 	if opts.UploadLimit > 1 {
-		length = util.MinInt(opts.UploadLimit, len(filteredFiles))
+		length = util.MinInt(opts.UploadLimit, len(files))
 	}
 
 	// truncate filtered files
-	filteredFiles = filteredFiles[0:length]
-	logrus.Infof("Got %d files to upload", len(filteredFiles))
+	files = files[0:length]
+	logrus.Infof("Got %d files to upload", len(files))
 
 	// loop to upload the files
-	for _, file := range filteredFiles {
+	for _, file := range files {
 
 		logrus.Infof("Uploading %s %+v", file.Path, file)
 
