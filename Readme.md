@@ -11,14 +11,14 @@ Works on Linux and Mac computers.
 
 - serve command - for file types other than specified - SERVE_FILE_FORMATS - display cannot find, with link (below folders, above images)
 - serve command - download to work dir - for images and unknown files
-- serv command - add move/rename capability (batch?)
-- serv command - add soft/hard delete capability (batch?)
+- serve command - add move/rename capability (batch?)
+- serve command - add soft/hard delete capability (batch?)
 - serve command - add upload capability
 - Make the tests clean up themselves on the s3?
 - Prod build - no debugging statements with sensitive info, DO NOT allow override of env provided from binary package
 - Dev build - allow override of env provided from binary package
 - Limited Access build - Prod build, plus no serve command?
-- serve command - add support for other file types (csv, json, excel-download, etc)
+- cacpture screenshots with https://github.com/kbinani/screenshot
 - Test and document with PAM and Crontab (exit code 0 for pam)
 - Todo Permissions override for mkdir functionality
 - Add Device List Command and tests to list capture devices

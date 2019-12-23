@@ -33,16 +33,16 @@ var uploadCommandTests = []uploadTest{
 			InFile: "t_test.jpg",
 			S3Dir:  "test-base-dir",
 		}},
-	// {"mismatched format, should fail", false,
-	// 	&cli.UploadCmdOptions{
-	// 		InFile:  "t_test.jpg",
-	// 		Formats: []string{"png"},
-	// 	}},
-	// {"specific format", true,
-	// 	&cli.UploadCmdOptions{
-	// 		InFile:  "t_test.jpg",
-	// 		Formats: []string{"jpg"},
-	// 	}},
+	{"mismatched format, should fail", false,
+		&cli.UploadCmdOptions{
+			InFile:  "t_test.jpg",
+			Formats: []string{"png"},
+		}},
+	{"specific format", true,
+		&cli.UploadCmdOptions{
+			InFile:  "t_test.jpg",
+			Formats: []string{"jpg"},
+		}},
 	{"directory without file, should upload one test file", true,
 		&cli.UploadCmdOptions{}},
 	{"directory without file and with limit, should upload multiple", true,
