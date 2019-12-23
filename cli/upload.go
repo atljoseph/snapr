@@ -33,6 +33,13 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		opts.UploadLimit = 1
 	}
 
+	// formats default (weird thing with cobra input slice)
+	if len(opts.Formats) == 1 {
+		if len(strings.Trim(opts.Formats[0], " ")) == 0 {
+			opts.Formats = nil
+		}
+	}
+
 	// handle the dir and file inputs
 	// and get a list of files based on the inputs
 	var files []util.WalkedFile
@@ -115,17 +122,12 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 	// TODO: order the files with the oldest first and newest last
 
-	// validate the formats input
-	// weirdness with the cobra lib and the []string var
-	if len(opts.Formats) == 0 || len(opts.Formats[0]) == 0 {
-		opts.Formats = util.SupportedCaptureFormats()
-	}
-
 	// filter out files without specific filename format
 	var filteredFiles = files
 
 	// if the option is set, it will filter out files by extension
 	if len(opts.Formats) > 0 {
+		logrus.Warnf("%s %d", opts.Formats[0], len(opts.Formats))
 
 		// reset and append
 		filteredFiles = nil

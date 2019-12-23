@@ -2,25 +2,25 @@ package cli
 
 import (
 	"encoding/base64"
-	"fmt"
 	"net/http"
+	"path/filepath"
 	"snapr/util"
 	"strings"
 	"text/template"
-
-	"github.com/sirupsen/logrus"
 )
 
-// Page is the page in a browser
-type Page struct {
+// BrowsePage is the page in a browser
+type BrowsePage struct {
 	Folders []Folder
-	Images  []Image
+	Files   []Object
+	Images  []Object
 }
 
-// Image is a wrapper for an aws image
-type Image struct {
-	Base64 string
-	Key    string
+// Object is a wrapper for an aws object
+type Object struct {
+	Base64     string
+	Key        string
+	DisplayKey string
 }
 
 // Folder is a wrapper for an aws folder
@@ -29,8 +29,8 @@ type Folder struct {
 	DisplayKey string
 }
 
-// PageTemplate describes how the page should look
-var PageTemplate string = `<!DOCTYPE html>
+// BrowsePageTemplate describes how the page should look
+var BrowsePageTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<link rel="icon" href="data:,">
@@ -38,26 +38,35 @@ var PageTemplate string = `<!DOCTYPE html>
 <body>
 	{{range .Folders}}
 	<p>
-		<a href="?dir={{.Key}}">{{.DisplayKey}}</a>
+		<a href="browse?dir={{.Key}}">{{.DisplayKey}}</a>
+	</p>
+	{{end}}
+	{{range .Files}}
+	<p>
+		<span>
+			{{.DisplayKey}}
+			&nbsp;<a href="download?key={{.DisplayKey}}">Download</a>
+		</span>
 	</p>
 	{{end}}
 	{{range .Images}}
 	<span>
-		<p>{{.Key}}</p>
+		<p>{{.DisplayKey}}</p>
 		<img src="data:image/jpg;base64,{{.Base64}}">
 	</span>
 	{{end}}
 </body></html>`
 
-// ServeCmdGetHandler is a proving ground right meow
-func ServeCmdGetHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w http.ResponseWriter, r *http.Request) {
-	funcTag := "ServeCmdGetHandler"
+// ServeCmdBrowseHandler is a proving ground right meow
+func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w http.ResponseWriter, r *http.Request) {
+	funcTag := "ServeCmdBrowseHandler"
 	return func(w http.ResponseWriter, r *http.Request) {
-		// logrus.Infof("REQUEST: %s, %s, %s", r.Method, r.URL, r.RequestURI)
+		// logrus.Infof("REQUEST (%s): %s, %s, %s", funcTag, r.Method, r.URL, r.RequestURI)
 
+		// only respond to get request (from browser)
 		if r.Method == http.MethodGet {
 
-			// TODO: get the key/dir from the url
+			// get the key/dir from the url
 			qp := r.URL.Query()
 			qpS3SubKeys := qp["dir"]
 
@@ -99,73 +108,91 @@ func ServeCmdGetHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w htt
 				http.Error(w, err.Error(), http.StatusBadRequest)
 			}
 
-			tmpl, err := template.New("image").Parse(PageTemplate)
+			// parse the html template into a go object
+			tmpl, err := template.New("browse").Parse(BrowsePageTemplate)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "parse object image into html template")
 				http.Error(w, err.Error(), http.StatusBadRequest)
 			}
 
 			// build the page's images
-			p := &Page{}
+			p := &BrowsePage{}
 
+			// folders
+			// for each sub-directory (common key)
 			for _, commonKey := range commonKeys {
+
+				// smash together the cli input s3-dir with the object key
 				cliInputDir := opts.S3Dir
 				if len(cliInputDir) > 0 {
 					cliInputDir += util.S3Delimiter
 				}
+				// href query param key
 				linkKey := strings.ReplaceAll(commonKey, cliInputDir, "")
+
+				// get the last folder in the key
 				keysSlice := strings.Split(commonKey, util.S3Delimiter)
 				displayKey := keysSlice[len(keysSlice)-2]
+
 				// logrus.Infof("LINK KEY: %s (%s), %s", commonKey, cliInputDir, displayKey)
 				p.Folders = append(p.Folders, Folder{Key: linkKey, DisplayKey: displayKey})
 			}
 
+			// files and images
 			for _, obj := range objects {
 
-				imgBytes, err := util.DownloadS3Object(awsSesh, *obj.Key)
-				if err != nil {
-					err = util.WrapError(err, funcTag, "downloading object")
-					http.Error(w, err.Error(), http.StatusBadRequest)
-				}
-
+				// smash together the cli input s3-dir with the object key
 				cliInputDir := opts.S3Dir
 				if len(cliInputDir) > 0 {
 					cliInputDir += util.S3Delimiter
 				}
-				imgKey := strings.ReplaceAll(*obj.Key, cliInputDir, "")
-				p.Images = append(p.Images, Image{
-					Base64: base64.StdEncoding.EncodeToString(imgBytes),
-					Key:    imgKey,
-				})
+
+				// object key in aws
+				objKey := strings.ReplaceAll(*obj.Key, cliInputDir, "")
+
+				// determine if file or image
+				ext := strings.ReplaceAll(filepath.Ext(objKey), ".", "")
+
+				// is this an image?
+				// good compromise for image format determination
+				isImage := false
+				for _, format := range util.SupportedCaptureFormats() {
+					if strings.EqualFold(format, ext) {
+						isImage = true
+						break
+					}
+				}
+
+				// if match, put in image slice
+				// else file slice
+				if isImage {
+
+					// download the object to byte slice
+					objBytes, err := util.DownloadS3Object(awsSesh, *obj.Key)
+					if err != nil {
+						err = util.WrapError(err, funcTag, "downloading object")
+						http.Error(w, err.Error(), http.StatusBadRequest)
+					}
+
+					// append to images slice
+					p.Images = append(p.Images, Object{
+						Base64:     base64.StdEncoding.EncodeToString(objBytes),
+						DisplayKey: objKey,
+						Key:        *obj.Key,
+					})
+				} else {
+
+					// append to files slice
+					p.Files = append(p.Files, Object{
+						DisplayKey: objKey,
+						Key:        *obj.Key,
+					})
+				}
+
 			}
 
 			// exec the template and data
 			tmpl.Execute(w, p)
-
-			// for _, itm := range list.Contents {
-			// 	logrus.Infof("%+v", itm)
-			// }
 		}
 	}
-}
-
-// ServeCmdRunE runs the serve command
-// it is exported for testing
-func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
-	funcTag := "ServeCmdRunE"
-	logrus.Infof(funcTag)
-
-	http.HandleFunc("/", ServeCmdGetHandler(ropts, opts))
-
-	hostNPort := fmt.Sprintf("%s:%d", "localhost", opts.Port)
-	logrus.Warnf("Go to `http://%s` in your browser ...", hostNPort)
-
-	// go (func() {
-	err := http.ListenAndServe(hostNPort, nil)
-	if err != nil {
-		logrus.Warnf(util.WrapError(err, funcTag, "serving content").Error())
-	}
-	// })()
-
-	return nil
 }

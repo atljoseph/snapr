@@ -9,8 +9,7 @@ Works on Linux and Mac computers.
 
 ## TODO
 
-- serve command - for file types other than specified - SERVE_FILE_FORMATS - display cannot find, with link (below folders, above images)
-- serve command - download to work dir - for images and unknown files
+- serve command - view file as text (for text file types)
 - serve command - add move/rename capability (batch?)
 - serve command - add soft/hard delete capability (batch?)
 - serve command - add upload capability
@@ -51,36 +50,7 @@ You need a file at the project root named `.env`, and yes, it can be blank.
 For the environment variables specified in the `.env` file, after building, they will no longer be overridable at runtime. 
 If a variable is not set, then it can be overriden at runtime.
 
-These OPTIONAL variables apply to the `snap` command flags:
-```
-SNAP_DEVICE=
-SNAP_DIR_EXTRA=
-SNAP_DIR=
-SNAP_FILE=
-SNAP_FILE_FORMAT=
-SNAP_FILE_USERS=
-SNAP_UPLOAD_AFTER_SUCCESS=
-SNAP_CLEANUP_AFTER_UPLOAD=
-```
-
-These OPTIONAL variables apply to the `upload` command flags:
-```
-UPLOAD_DIR=
-UPLOAD_FILE=
-UPLOAD_CLEANUP_AFTER_SUCCESS=
-UPLOAD_FORMATS=
-UPLOAD_LIMIT=
-UPLOAD_S3_DIR=
-```
-
-These OPTIONAL variables apply to the `serve` command flags:
-```
-SERVE_S3_DIR=
-SERVE_WORK_DIR=
-SERVE_PORT=
-```
-
-These REQUIRED variables are used for AWS:
+These REQUIRED variables are used for AWS S3 access:
 ```
 S3_BUCKET=my.s3.bucket
 S3_REGION=us-east-west
@@ -146,12 +116,24 @@ To snap a webcam photo:
 ```
 snapr snap
 snapr snap --help
-snapr snap --device=/dev/video1
 snapr snap --dir=my/base/dir
-snapr snap --extra-dir=my/sub/dir
-snapr snap --users
-snapr snap --format=png
-snapr snap --upload --cleanup
+snapr snap --dir=my/base/dir --device=/dev/video1
+snapr snap --dir=my/base/dir --extra-dir=my/sub/dir
+snapr snap --dir=my/base/dir --users
+snapr snap --dir=my/base/dir --format=png --upload 
+snapr snap --file test.jpg --upload --cleanup
+```
+
+These OPTIONAL `.env` vars apply to the `snap` command flags:
+```
+SNAP_DEVICE=
+SNAP_DIR_EXTRA=
+SNAP_DIR=
+SNAP_FILE=
+SNAP_FILE_FORMAT=
+SNAP_FILE_USERS=
+SNAP_UPLOAD_AFTER_SUCCESS=
+SNAP_CLEANUP_AFTER_UPLOAD=
 ```
 
 ## Upload Command
@@ -159,10 +141,23 @@ snapr snap --upload --cleanup
 To upload a photo to an AWS bucket:
 ```
 snapr upload --file=my/in/file.ext
+snapr upload --file=my/in/file.ext --s3-dir dir/in/s3
 snapr upload --file=my/in/file.ext --cleanup
 snapr upload --dir=my/base/dir 
-snapr upload --limit=10
-snapr upload --limit=10 --formats=png,jpg
+snapr upload --dir=my/base/dir --limit=10
+snapr upload --dir=my/base/dir --limit=10 --formats=png,jpg
+```
+
+If `--formats` is not specified, then all files are uploaded.
+
+These OPTIONAL `.env` vars apply to the `upload` command flags:
+```
+UPLOAD_DIR=
+UPLOAD_FILE=
+UPLOAD_CLEANUP_AFTER_SUCCESS=
+UPLOAD_FORMATS=
+UPLOAD_LIMIT=
+UPLOAD_S3_DIR=
 ```
 
 ## Serve Command
@@ -174,5 +169,14 @@ Used to view files from a public or private S3 Bucket in the browser on your loc
 Use it like this:
 ```
 snapr serve --s3-dir=cupcake
+snapr serve --work-dir=/Users/me
 snapr serve --port=8081
+snapr serve --work-dir=/Users/me/Desktop --s3-dir=test
+```
+
+These OPTIONAL `.env` vars apply to the `serve` command flags:
+```
+SERVE_S3_DIR=
+SERVE_WORK_DIR=
+SERVE_PORT=
 ```

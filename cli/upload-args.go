@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"fmt"
 	"snapr/util"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -64,10 +62,9 @@ func init() {
 		"(Optional) Delete file after uploading")
 
 	// upload format filter
-	supportedFormats := strings.Join(util.SupportedCaptureFormats(), ",")
 	uploadCmd.Flags().StringSliceVar(&uploadCmdOpts.Formats,
 		"formats", util.EnvVarStringSlice("UPLOAD_FORMATS", ""),
-		fmt.Sprintf("(Optional) Upload Formats (comma delimited) - Ignored if using '--file' - Supported Formats: [%s]", supportedFormats))
+		"(Optional) Upload Formats for filtering (comma delimited) - Example: png,jpg")
 
 	// upload file limit
 	uploadCmd.Flags().IntVar(&uploadCmdOpts.UploadLimit,

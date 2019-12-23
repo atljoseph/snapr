@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"fmt"
 	"snapr/util"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -14,7 +12,6 @@ type ServeCmdOptions struct {
 	S3Dir   string
 	Port    int
 	Host    string
-	Formats []string
 }
 
 // serve command
@@ -64,10 +61,4 @@ func init() {
 	serveCmd.Flags().IntVar(&serveCmdOpts.Port,
 		"port", util.EnvVarInt("SERVE_PORT", 8080),
 		"(Override) Serve Port")
-
-	// format override
-	supportedFormats := strings.Join(util.SupportedCaptureFormats(), ",")
-	serveCmd.Flags().StringSliceVar(&serveCmdOpts.Formats,
-		"format", util.EnvVarStringSlice("SERVE_FILE_FORMATS", ""),
-		fmt.Sprintf("(Override) Serve Browsing Formats - Supported Formats: [%s]", supportedFormats))
 }
