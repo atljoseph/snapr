@@ -6,14 +6,18 @@ import (
 	"path/filepath"
 	"snapr/util"
 	"strings"
+	"sync"
 	"text/template"
+
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/sirupsen/logrus"
 )
 
 // BrowsePage is the page in a browser
 type BrowsePage struct {
 	Folders []Folder
 	Files   []Object
-	Images  []Object
+	Images  []*Object
 }
 
 // Object is a wrapper for an aws object
@@ -141,6 +145,9 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 				p.Folders = append(p.Folders, Folder{Key: linkKey, DisplayKey: displayKey})
 			}
 
+			// get a new wait group to wait on goroutine group completion
+			var wg sync.WaitGroup
+
 			// files and images
 			for _, obj := range objects {
 
@@ -151,10 +158,10 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 				}
 
 				// object key in aws
-				objKey := strings.ReplaceAll(*obj.Key, cliInputDir, "")
+				displayKey := strings.ReplaceAll(*obj.Key, cliInputDir, "")
 
 				// determine if file or image
-				ext := strings.ReplaceAll(filepath.Ext(objKey), ".", "")
+				ext := strings.ReplaceAll(filepath.Ext(displayKey), ".", "")
 
 				// is this an image?
 				// good compromise for image format determination
@@ -170,32 +177,49 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 				// else file slice
 				if isImage {
 
-					// download the object to byte slice
-					objBytes, err := util.DownloadS3Object(awsSesh, *obj.Key)
-					if err != nil {
-						err = util.WrapError(err, funcTag, "downloading object")
-						http.Error(w, err.Error(), http.StatusBadRequest)
-					}
-
-					// append to images slice
-					p.Images = append(p.Images, Object{
-						Base64:     base64.StdEncoding.EncodeToString(objBytes),
-						DisplayKey: objKey,
-						Key:        *obj.Key,
-					})
+					// add the image data to a worker
+					// on a separate goroutine
+					wg.Add(1)
+					go HandleImageDownloadWorker(awsSesh, *obj.Key, displayKey, &p.Images, &wg)
 				} else {
 
 					// append to files slice
 					p.Files = append(p.Files, Object{
-						DisplayKey: objKey,
+						DisplayKey: displayKey,
 						Key:        *obj.Key,
 					})
 				}
 
 			}
 
+			// wait on worker group to complete
+			wg.Wait()
+
 			// exec the template and data
 			tmpl.Execute(w, p)
 		}
 	}
+}
+
+// HandleImageDownloadWorker is a Wait Group Worker
+// used to download and append a file and its data to the images slice
+func HandleImageDownloadWorker(awsSesh *session.Session, objectKey string, displayKey string, pageImages *[]*Object, wg *sync.WaitGroup) {
+	funcTag := "HandleImageDownloadWorker"
+
+	// download the object to byte slice
+	objBytes, err := util.DownloadS3Object(awsSesh, objectKey)
+	if err != nil {
+		logrus.Warnf(util.WrapError(err, funcTag, "downloading object").Error())
+	}
+
+	// append to images slice
+	*pageImages = append(*pageImages, &Object{
+		Base64:     base64.StdEncoding.EncodeToString(objBytes),
+		DisplayKey: displayKey,
+		Key:        objectKey,
+	})
+
+	// logrus.Infof("WORKER: (%d files) %s", len(*pageImages), displayKey)
+
+	wg.Done()
 }
