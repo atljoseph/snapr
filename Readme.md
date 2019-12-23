@@ -9,8 +9,13 @@ Works on Linux and Mac computers.
 
 ## TODO
 
-- Upload/Snap - add base Upload Key
-- Improve Serve command - (Move/rename, Soft/Hard delete, download, upload) & implement functionality from SERVE_FILE_FORMATS
+- Improve Serve command - (Move/rename, Soft/Hard delete, download, upload)
+- serve command - ignore file types other than specified - SERVE_FILE_FORMATS
+- Make the tests clean up themselves on the s3?
+- Prod build - no debugging statements with sensitive info, DO NOT allow override of env provided from binary package
+- Dev build - allow override of env provided from binary package
+- Limited Access build - Prod build, plus no serve command?
+- serve command - add support for other file types (csv, json, excel-download, etc)
 - Test and document with PAM and Crontab (exit code 0 for pam)
 - Todo Permissions override for mkdir functionality
 - Add Device List Command and tests to list capture devices
@@ -62,12 +67,13 @@ UPLOAD_FILE=
 UPLOAD_CLEANUP_AFTER_SUCCESS=
 UPLOAD_FORMATS=
 UPLOAD_LIMIT=
+UPLOAD_S3_DIR=
 ```
 
 These OPTIONAL variables apply to the `serve` command flags:
 ```
 SERVE_S3_DIR=
-SERVE_DIR=
+SERVE_WORK_DIR=
 SERVE_PORT=
 ```
 
@@ -116,17 +122,17 @@ The test will create a temp directory to run test commands in, and then clean up
 
 To run just the `snap` command tests:
 ```
-go test -run="SnapC"
+go test -run=1
 ```
 
 To run just the `upload` command tests:
 ```
-go test -run="UploadC"
+go test -run=2
 ```
 
 To test a combination of the `snap` and `upload` commands:
 ```
-go test -run="SnapU"
+go test -run=3
 ```
 
 The `serve` command is not currently tested.
@@ -153,6 +159,7 @@ snapr upload --file=my/in/file.ext
 snapr upload --file=my/in/file.ext --cleanup
 snapr upload --dir=my/base/dir 
 snapr upload --limit=10
+snapr upload --limit=10 --formats=png,jpg
 ```
 
 ## Serve Command

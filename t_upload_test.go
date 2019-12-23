@@ -28,6 +28,11 @@ var uploadCommandTests = []uploadTest{
 		&cli.UploadCmdOptions{
 			InFile: "t_test.jpg",
 		}},
+	{"explicitly defined file with s3 base dir", true,
+		&cli.UploadCmdOptions{
+			InFile: "t_test.jpg",
+			S3Dir:  "test-base-dir",
+		}},
 	{"mismatched format, should fail", false,
 		&cli.UploadCmdOptions{
 			InFile:  "t_test.jpg",
@@ -44,15 +49,24 @@ var uploadCommandTests = []uploadTest{
 		&cli.UploadCmdOptions{
 			UploadLimit: 3,
 		}},
+	{"directory without file and with limit and base s3 dir", true,
+		&cli.UploadCmdOptions{
+			UploadLimit: 3,
+			S3Dir:       "test-base-dir",
+		}},
+	{"upload limit too high, should fail", false,
+		&cli.UploadCmdOptions{
+			UploadLimit: 101,
+		}},
 	// this should always be the last test
 	{"cleanup after success", true,
 		&cli.UploadCmdOptions{
-			UploadLimit:         3,
+			UploadLimit:         10,
 			CleanupAfterSuccess: true,
 		}},
 }
 
-func TestCommandUpload(t *testing.T) {
+func Test2CommandUpload(t *testing.T) {
 
 	// ensure the temp directory exists
 	_, testTempDir, err := ensureTestDir("test-upload")
@@ -88,6 +102,11 @@ func TestCommandUpload(t *testing.T) {
 
 		test.cmdOpts.InDir = testTempDir // filepath.Join(testTempDir, test.description)
 
+		// don't let these mutate
+		testInFile := test.cmdOpts.InFile
+		testS3Dir := test.cmdOpts.S3Dir
+		testUploadLimit := test.cmdOpts.UploadLimit
+
 		// run test command
 		err := cli.UploadCmdRunE(testRootCmdOpts, test.cmdOpts)
 		logrus.Infof("Command Ran")
@@ -110,17 +129,35 @@ func TestCommandUpload(t *testing.T) {
 		if err == nil {
 
 			// TODO: check all uploaded files (when multiples)
+			var keysToConfirm []string
 			var filesToConfirm []string
 
-			if len(test.cmdOpts.InFile) > 0 {
-				filesToConfirm = append(filesToConfirm, test.cmdOpts.InFile)
+			if len(testInFile) > 0 {
+				// get the base s3 dir
+				baseS3Key := testInFile
+				if len(testS3Dir) > 0 {
+					baseS3Key = testS3Dir + util.S3Delimiter + testInFile
+				}
+				// set the file and key for checking
+				filesToConfirm = append(filesToConfirm, testInFile)
+				keysToConfirm = append(keysToConfirm, baseS3Key)
 			} else {
 				// assume anything below 1 is same as 1
+				if testUploadLimit < 1 {
+					testUploadLimit = 1
+				}
 				// if more files, append them all, until the milit
-				if test.cmdOpts.UploadLimit > 1 {
+				if testUploadLimit > 1 {
 					for _, testFile := range testFiles {
-						if len(filesToConfirm) < test.cmdOpts.UploadLimit {
+						if len(filesToConfirm) < testUploadLimit {
+							// get the base s3 dir
+							baseS3Key := testFile
+							if len(testS3Dir) > 0 {
+								baseS3Key = testS3Dir + util.S3Delimiter + testFile
+							}
+							// set the file and key for checking
 							filesToConfirm = append(filesToConfirm, testFile)
+							keysToConfirm = append(keysToConfirm, baseS3Key)
 						}
 					}
 				}
@@ -133,20 +170,20 @@ func TestCommandUpload(t *testing.T) {
 			}
 
 			// check in AWS
-			for _, fileToConfirm := range filesToConfirm {
+			for _, keyToConfirm := range keysToConfirm {
 
 				// get the base file name
-				fileToConfirm = filepath.Base(fileToConfirm)
+				keyToConfirm = filepath.Base(keyToConfirm)
 
 				// check if the file exists in aws
-				exists, err := util.CheckS3FileExists(s3Client, testRootCmdOpts.Bucket, fileToConfirm)
+				exists, err := util.CheckS3FileExists(s3Client, testRootCmdOpts.Bucket, keyToConfirm)
 				if err != nil {
 					logrus.Warnf("check file exists in aws: %s", err)
 				}
 
 				// report on existance
 				if exists {
-					logrus.Infof("File Exists in AWS: %s", fileToConfirm)
+					logrus.Infof("File Exists in AWS: %s", keyToConfirm)
 				} else {
 					t.Errorf(wrapUploadTestError(test, fmt.Sprintf("file not found in aws: %s", err)))
 				}

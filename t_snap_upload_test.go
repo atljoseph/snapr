@@ -6,7 +6,7 @@ import (
 	"snapr/cli"
 )
 
-func TestSnapUploadCommand(t *testing.T) {
+func Test3SnapUploadCommand(t *testing.T) {
 	// define the tests
 	// OutDir is set on all these programmatically (below)
 	testCommandSnap(t, []snapTest{

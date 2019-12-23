@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -59,7 +58,7 @@ func CheckS3FileExists(s3Client *s3.S3, bucket, key string) (bool, error) {
 }
 
 // SendToS3 sends a single file to an AWS S3 bucket
-func SendToS3(s3Client *s3.S3, bucket, baseDirPth string, waffle WalkedFile) (string, error) {
+func SendToS3(s3Client *s3.S3, bucket string, waffle WalkedFile, targetKey string) (string, error) {
 	funcTag := "SendToS3"
 
 	// Open the file for use
@@ -68,9 +67,6 @@ func SendToS3(s3Client *s3.S3, bucket, baseDirPth string, waffle WalkedFile) (st
 		return "", WrapError(err, funcTag, "opening file")
 	}
 	defer file.Close()
-
-	// determine the aws path key
-	key := strings.ReplaceAll(waffle.Path, baseDirPth+"/", "")
 
 	// Get file size and read the file content into a buffer
 	fileSize := waffle.FileInfo.Size()
@@ -81,7 +77,7 @@ func SendToS3(s3Client *s3.S3, bucket, baseDirPth string, waffle WalkedFile) (st
 	// of the file you're uploading.
 	_, err = s3Client.PutObject(&s3.PutObjectInput{
 		Bucket:             aws.String(bucket),
-		Key:                aws.String(key),
+		Key:                aws.String(targetKey),
 		ACL:                aws.String("private"),
 		Body:               bytes.NewReader(buffer),
 		ContentLength:      aws.Int64(fileSize),
@@ -94,7 +90,7 @@ func SendToS3(s3Client *s3.S3, bucket, baseDirPth string, waffle WalkedFile) (st
 	}
 
 	// return if no error
-	return key, nil
+	return targetKey, nil
 }
 
 // S3Delimiter is the folder delimiter (for us) in AWS S3

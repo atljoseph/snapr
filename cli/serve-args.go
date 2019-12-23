@@ -56,7 +56,7 @@ func init() {
 	// default to calling user's home directory
 	// TODO: default below
 	serveCmd.Flags().StringVar(&serveCmdOpts.WorkDir,
-		"dir", util.EnvVarString("SERVE_DIR", ""),
+		"work-dir", util.EnvVarString("SERVE_WORK_DIR", ""),
 		"(Recommended) This will eventually be the Download and Upload directory")
 
 	// file override ... optional

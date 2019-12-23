@@ -18,7 +18,7 @@ type snapTest struct {
 	cmdOpts         *cli.SnapCmdOptions
 }
 
-func TestSnapCommand(t *testing.T) {
+func Test1SnapCommand(t *testing.T) {
 	// define the tests
 	// OutDir is set on all these programmatically (below)
 	testCommandSnap(t, []snapTest{
@@ -87,6 +87,7 @@ func testCommandSnap(t *testing.T, tests []snapTest) {
 
 		// don't let these mutate
 		testOutDir := test.cmdOpts.OutDir // TODO: this is being ignored when custom file is used
+		testOutDirExtra := test.cmdOpts.OutDirExtra
 		testOutFile := test.cmdOpts.OutFile
 
 		// run test command
@@ -113,8 +114,8 @@ func testCommandSnap(t *testing.T, tests []snapTest) {
 			// order is important for these folders
 
 			// add the extra dir if the extra dir is specified
-			if len(test.cmdOpts.OutDirExtra) > 0 {
-				testOutDir = filepath.Join(testOutDir, test.cmdOpts.OutDirExtra)
+			if len(testOutDirExtra) > 0 {
+				testOutDir = filepath.Join(testOutDir, testOutDirExtra)
 			}
 
 			// if users params is supplied, check that, too

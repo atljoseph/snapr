@@ -16,8 +16,6 @@ type UploadCmdOptions struct {
 	Formats             []string
 	UploadLimit         int
 	S3Dir               string
-	S3Bucket            string
-	S3Region            string
 }
 
 // upload command
@@ -76,4 +74,8 @@ func init() {
 		"limit", util.EnvVarInt("UPLOAD_LIMIT", 1),
 		"(Optional) Limit the number of files to upload in any one operation - Ignored if using '--file'")
 
+	// this is where the files are pulled from
+	uploadCmd.Flags().StringVar(&uploadCmdOpts.S3Dir,
+		"s3-dir", util.EnvVarString("UPLOAD_S3_DIR", ""),
+		"(Optional) Upload Base S3 Key ... Directory")
 }

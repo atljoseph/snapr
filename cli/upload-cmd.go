@@ -27,6 +27,12 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		return util.WrapError(fmt.Errorf("Validation Error"), funcTag, "choose an upload limit smaller than 100")
 	}
 
+	// default the limit to 1 if 0
+	// this situation can happen in testing, where the cobra args arent eval-ed
+	if opts.UploadLimit < 1 {
+		opts.UploadLimit = 1
+	}
+
 	// handle the dir and file inputs
 	// and get a list of files based on the inputs
 	var files []util.WalkedFile
@@ -155,8 +161,15 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 		logrus.Infof("Uploading %s %+v", file.Path, file)
 
+		// get the base s3 dir
+		// first, get the key from the end of the filename
+		key := strings.ReplaceAll(file.Path, opts.InDir+"/", "")
+		if len(opts.S3Dir) > 0 {
+			key = opts.S3Dir + util.S3Delimiter + key
+		}
+
 		// send to AWS
-		key, err := util.SendToS3(s3Client, ropts.Bucket, opts.InDir, file)
+		key, err := util.SendToS3(s3Client, ropts.Bucket, file, key)
 		if err != nil {
 			return util.WrapError(err, funcTag, "sending file to aws")
 		}

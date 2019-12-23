@@ -91,4 +91,5 @@ func init() {
 	snapCmd.Flags().BoolVar(&snapCmdOpts.CleanupAfterUpload,
 		"cleanup", util.EnvVarBool("SNAP_CLEANUP_AFTER_UPLOAD", false),
 		"(Optional) Remove the file after successful upload - Ignored unless using `--upload`")
+
 }
