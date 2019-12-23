@@ -43,15 +43,18 @@ var BrowsePageTemplate = `<!DOCTYPE html>
 	{{end}}
 	{{range .Files}}
 	<p>
-		<span>
+		<p>
 			{{.DisplayKey}}
 			&nbsp;<a href="download?key={{.DisplayKey}}">Download</a>
-		</span>
+		</p>
 	</p>
 	{{end}}
 	{{range .Images}}
 	<span>
-		<p>{{.DisplayKey}}</p>
+		<p>
+			{{.DisplayKey}}
+			&nbsp;<a href="download?key={{.DisplayKey}}">Download</a>
+		</p>
 		<img src="data:image/jpg;base64,{{.Base64}}">
 	</span>
 	{{end}}
