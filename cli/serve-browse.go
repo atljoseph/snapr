@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"snapr/util"
+	"sort"
 	"strings"
 	"sync"
 	"text/template"
@@ -194,6 +195,12 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 
 			// wait on worker group to complete
 			wg.Wait()
+
+			// reorder the images (due to async gets)
+			sort.SliceStable(p.Images, func(a, b int) bool {
+				// ascending by "DisplayKey"
+				return p.Images[a].DisplayKey < p.Images[b].DisplayKey
+			})
 
 			// exec the template and data
 			tmpl.Execute(w, p)
