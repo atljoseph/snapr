@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"snapr/util"
 	"text/template"
+
+	"github.com/sirupsen/logrus"
 )
 
 // DownloadPage shows when visiting /download
@@ -65,14 +67,25 @@ func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(
 			}
 
 			// download the object to byte slice
-			objBytes, err := util.DownloadS3Object(awsSesh, qpS3Key)
+			objBytes, err := util.DownloadS3Object(awsSesh, ropts.Bucket, qpS3Key)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "downloading object")
 				http.Error(w, err.Error(), http.StatusBadRequest)
 			}
 
-			// Create new file
+			// new path
 			newFilePath := filepath.Join(opts.WorkDir, qpS3KeyDisplay)
+
+			// ensure dir exists
+			mkdir := filepath.Dir(newFilePath)
+			logrus.Infof("Ensuring Directory: %s", mkdir)
+			err = os.MkdirAll(mkdir, ropts.FileCreateMode)
+			if err != nil {
+				err = util.WrapError(err, funcTag, "mkdir "+mkdir)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			}
+
+			// Create new file
 			newFile, err := os.Create(newFilePath)
 			if err != nil {
 				err = util.WrapError(err, funcTag, fmt.Sprintf("could not create new file: %s", newFilePath))

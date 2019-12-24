@@ -97,12 +97,12 @@ func SendToS3(s3Client *s3.S3, bucket string, waffle WalkedFile, targetKey strin
 var S3Delimiter = "/"
 
 // S3ObjectsByKey sends a single file to an AWS S3 bucket
-func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, []string, error) {
+func S3ObjectsByKey(s3Client *s3.S3, bucket string, key string) ([]*s3.Object, []string, error) {
 	funcTag := "S3ObjectsByKey"
 
 	// build the input
 	query := &s3.ListObjectsV2Input{
-		Bucket:    aws.String(EnvVarString("S3_BUCKET", "")),
+		Bucket:    aws.String(bucket),
 		Prefix:    aws.String(key),
 		Delimiter: aws.String("/"),
 	}
@@ -146,9 +146,10 @@ func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, []string, error)
 		// set the continuation token and handle break on truncation
 		query.ContinuationToken = response.NextContinuationToken
 
+		logrus.Warnf("%+v, %s", response, err)
 		// if truncated, break with all the results
 		if !*response.IsTruncated {
-			logrus.Infof("Done fetching. %d total results", len(files))
+			logrus.Infof("Done fetching. %d files, %d folders", len(files), len(folders))
 			break
 		}
 	}
@@ -158,12 +159,12 @@ func S3ObjectsByKey(s3Client *s3.S3, key string) ([]*s3.Object, []string, error)
 }
 
 // DownloadS3Object downaloads a single object from aws s3 bucket
-func DownloadS3Object(sesh *session.Session, key string) ([]byte, error) {
+func DownloadS3Object(sesh *session.Session, bucket, key string) ([]byte, error) {
 	funcTag := "DownloadS3Object"
 	buff := &aws.WriteAtBuffer{}
 	downloader := s3manager.NewDownloader(sesh)
 	query := &s3.GetObjectInput{
-		Bucket: aws.String(EnvVarString("S3_BUCKET", "")),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	}
 	_, err := downloader.Download(buff, query)

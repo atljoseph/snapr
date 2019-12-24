@@ -129,9 +129,9 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 	// ensure output dir exists
 	mkdir := filepath.Dir(outFilePath)
 	logrus.Infof("Ensuring Directory: %s", mkdir)
-	err = os.MkdirAll(mkdir, 0700)
+	err = os.MkdirAll(mkdir, ropts.FileCreateMode)
 	if err != nil {
-		return util.WrapError(err, funcTag, "mkdir for outFileDir")
+		return util.WrapError(err, funcTag, "mkdir for "+mkdir)
 	}
 
 	// input device driver

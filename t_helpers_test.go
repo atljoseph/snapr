@@ -58,7 +58,7 @@ func ensureTestDir(relativeDirName string) (pwd string, dir string, err error) {
 	}
 
 	// ensure the temp directory exists
-	err = os.MkdirAll(dir, 0700)
+	err = os.MkdirAll(dir, testRootCmdOpts.FileCreateMode)
 	if err != nil {
 		err = fmt.Errorf("could not create test temp dir (%s): %s", dir, err)
 		return

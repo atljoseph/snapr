@@ -110,7 +110,7 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 			}
 
 			// get the object list
-			objects, commonKeys, err := util.S3ObjectsByKey(s3Client, qpS3SubKey)
+			objects, commonKeys, err := util.S3ObjectsByKey(s3Client, ropts.Bucket, qpS3SubKey)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "get bucket contents info by key")
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -181,7 +181,7 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 					// add the image data to a worker
 					// on a separate goroutine
 					wg.Add(1)
-					go HandleImageDownloadWorker(awsSesh, *obj.Key, displayKey, &p.Images, &wg)
+					go HandleImageDownloadWorker(awsSesh, ropts.Bucket, *obj.Key, displayKey, &p.Images, &wg)
 				} else {
 
 					// append to files slice
@@ -210,13 +210,13 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 
 // HandleImageDownloadWorker is a Wait Group Worker
 // used to download and append a file and its data to the images slice
-func HandleImageDownloadWorker(awsSesh *session.Session, objectKey string, displayKey string, pageImages *[]*Object, wg *sync.WaitGroup) {
+func HandleImageDownloadWorker(awsSesh *session.Session, bucket, objectKey string, displayKey string, pageImages *[]*Object, wg *sync.WaitGroup) {
 	funcTag := "HandleImageDownloadWorker"
 
 	// download the object to byte slice
-	objBytes, err := util.DownloadS3Object(awsSesh, objectKey)
+	objBytes, err := util.DownloadS3Object(awsSesh, bucket, objectKey)
 	if err != nil {
-		logrus.Warnf(util.WrapError(err, funcTag, "downloading object").Error())
+		logrus.Warnf(util.WrapError(err, funcTag, "downloading object bucket").Error())
 	}
 
 	// append to images slice
