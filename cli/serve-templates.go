@@ -31,6 +31,28 @@ var serveCmdTmpls = []Template{
 		</body></html>`,
 	},
 	Template{
+		Name: `js-xhr-post`,
+		Markup: `
+		function postAjax(url, data) {
+			var params = typeof data == 'string' ? data : Object.keys(data).map(
+					function(k){ return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]) }
+				).join('&');
+		
+			var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
+			xhr.open('POST', url);
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState>3 && xhr.status==200) { success(xhr.responseText); }
+				else console.log(xhr.responseText)
+			};
+			xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+			xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+			xhr.send(params);
+			return xhr;
+		}
+		
+		postAjax('http://localhost:8080/download?key=photo-albums.json', { p1: 1, p2: 'Hello World' });`,
+	},
+	Template{
 		Name: `browse`,
 		Markup: `
 		{{ template "page-start" }}

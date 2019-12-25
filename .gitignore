@@ -1,4 +1,5 @@
 **/*.env
 snapr
 snapr.exe
-.jpg
+*.jpg
+*.json

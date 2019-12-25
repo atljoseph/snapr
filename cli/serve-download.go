@@ -22,6 +22,7 @@ func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(
 		// logrus.Infof("REQUEST (%s): %s, %s, %s", funcTag, r.Method, r.URL, r.RequestURI)
 
 		// only respond to get request (from browser)
+		// TODO: Change to POST and use XHR template
 		if r.Method == http.MethodGet {
 
 			// get the key/dir from the url
@@ -44,13 +45,14 @@ func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(
 				qpS3Key += qpS3KeyDisplay
 			}
 
-			// logrus.Infof("KEY: %s, DISPLAY: %s", qpS3Key, qpS3KeyDisplay)
+			logrus.Infof("KEY: %s, DISPLAY: %s", qpS3Key, qpS3KeyDisplay)
 
 			// get a new s3 client
 			awsSesh, _, err := util.NewS3Client(ropts.S3Config)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "get a new s3 client")
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 
 			// download the object to byte slice
@@ -58,7 +60,9 @@ func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(
 			if err != nil {
 				err = util.WrapError(err, funcTag, "downloading object")
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
+			logrus.Infof("Downloaded: %s", qpS3Key)
 
 			// new path
 			newFilePath := filepath.Join(opts.WorkDir, qpS3KeyDisplay)
@@ -71,6 +75,7 @@ func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(
 			if err != nil {
 				err = util.WrapError(err, funcTag, "mkdir "+mkdir)
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 
 			// Create new file
@@ -78,7 +83,7 @@ func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(
 			if err != nil {
 				err = util.WrapError(err, funcTag, fmt.Sprintf("could not create new file: %s", newFilePath))
 				http.Error(w, err.Error(), http.StatusBadRequest)
-
+				return
 			}
 			defer newFile.Close()
 

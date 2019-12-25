@@ -9,17 +9,18 @@ Works on Linux and Mac computers.
 
 ## TODO
 
-- serve command - view file as text (for text file types)
+- add image processing command
 - serve command - add move/rename capability (batch?)
 - serve command - add soft/hard delete capability (batch?)
-- serve command - add upload capability
 - Make the tests clean up themselves on the s3?
+- Todo Permissions override for mkdir functionality
+- serve command - link to download entire folder
+- serve command - view file as text (for text file types)
+- serve command - add upload capability from ui
 - Prod build - no debugging statements with sensitive info, DO NOT allow override of env provided from binary package
 - Dev build - allow override of env provided from binary package
 - Limited Access build - Prod build, plus no serve command?
-- cacpture screenshots with https://github.com/kbinani/screenshot
 - Test and document with PAM and Crontab (exit code 0 for pam)
-- Todo Permissions override for mkdir functionality
 - Add Device List Command and tests to list capture devices
 
 ## Build
