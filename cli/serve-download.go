@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"snapr/util"
-	"text/template"
 
 	"github.com/sirupsen/logrus"
 )
@@ -15,18 +14,6 @@ import (
 type DownloadPage struct {
 	Message string
 }
-
-// DownloadPageTemplate describes how the Download page should look
-var DownloadPageTemplate = `<!DOCTYPE html>
-<html lang="en">
-<head>
-	<link rel="icon" href="data:,">
-</head>
-<body>
-	<span>
-		<p>{{.Message}}</p>
-	</span>
-</body></html>`
 
 // ServeCmdDownloadHandler is an http handler for downloading files to the work dir from the cli
 func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w http.ResponseWriter, r *http.Request) {
@@ -103,16 +90,9 @@ func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(
 
 			// logrus.Infof("COPIED: %d", bytesCopied)
 
-			// parse the html template into a go object
-			tmpl, err := template.New("download").Parse(DownloadPageTemplate)
-			if err != nil {
-				err = util.WrapError(err, funcTag, "parse object image into html template")
-				http.Error(w, err.Error(), http.StatusBadRequest)
-			}
-
 			// execute with message
 			message := fmt.Sprintf("File Copied: %s", newFilePath)
-			tmpl.Execute(w, &DownloadPage{Message: message})
+			serveCmdTempl.ExecuteTemplate(w, "download", &DownloadPage{Message: message})
 
 		}
 	}

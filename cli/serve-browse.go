@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"text/template"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/sirupsen/logrus"
@@ -33,37 +32,6 @@ type Folder struct {
 	Key        string
 	DisplayKey string
 }
-
-// BrowsePageTemplate describes how the page should look
-var BrowsePageTemplate = `<!DOCTYPE html>
-<html lang="en">
-<head>
-	<link rel="icon" href="data:,">
-</head>
-<body>
-	{{range .Folders}}
-	<p>
-		<a href="browse?dir={{.Key}}">{{.DisplayKey}}</a>
-	</p>
-	{{end}}
-	{{range .Files}}
-	<p>
-		<p>
-			{{.DisplayKey}}
-			&nbsp;<a href="download?key={{.DisplayKey}}">Download</a>
-		</p>
-	</p>
-	{{end}}
-	{{range .Images}}
-	<span>
-		<p>
-			{{.DisplayKey}}
-			&nbsp;<a href="download?key={{.DisplayKey}}">Download</a>
-		</p>
-		<img src="data:image/jpg;base64,{{.Base64}}">
-	</span>
-	{{end}}
-</body></html>`
 
 // ServeCmdBrowseHandler is a proving ground right meow
 func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w http.ResponseWriter, r *http.Request) {
@@ -113,13 +81,6 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 			objects, commonKeys, err := util.S3ObjectsByKey(s3Client, ropts.Bucket, qpS3SubKey)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "get bucket contents info by key")
-				http.Error(w, err.Error(), http.StatusBadRequest)
-			}
-
-			// parse the html template into a go object
-			tmpl, err := template.New("browse").Parse(BrowsePageTemplate)
-			if err != nil {
-				err = util.WrapError(err, funcTag, "parse object image into html template")
 				http.Error(w, err.Error(), http.StatusBadRequest)
 			}
 
@@ -203,7 +164,7 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 			})
 
 			// exec the template and data
-			tmpl.Execute(w, p)
+			serveCmdTempl.ExecuteTemplate(w, "browse", p)
 		}
 	}
 }

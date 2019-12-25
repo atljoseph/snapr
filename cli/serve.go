@@ -31,6 +31,12 @@ func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
 		}
 	}
 
+	// parse templates
+	serveCmdTempl, err = ParseTemplates()
+	if err != nil {
+		return util.WrapError(err, funcTag, "parsing templates")
+	}
+
 	// set up handlers
 	http.HandleFunc("/browse", ServeCmdBrowseHandler(ropts, opts))
 	http.HandleFunc("/download", ServeCmdDownloadHandler(ropts, opts))
@@ -44,7 +50,7 @@ func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
 	// go (func() {
 	err = http.ListenAndServe(hostNPort, nil)
 	if err != nil {
-		logrus.Warnf(util.WrapError(err, funcTag, "serving content").Error())
+		return util.WrapError(err, funcTag, "serving content")
 	}
 	// })()
 
