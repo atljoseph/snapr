@@ -14,8 +14,7 @@ import (
 // it is exported for testing
 func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
 	funcTag := "ServeCmdRunE"
-	logrus.Infof(funcTag)
-
+	// logrus.Infof(funcTag)
 	var err error
 
 	// default the work dir to the pwd
@@ -36,10 +35,12 @@ func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
 	if err != nil {
 		return util.WrapError(err, funcTag, "parsing templates")
 	}
+	logrus.Infof("Templates parsed")
 
 	// set up handlers
 	http.HandleFunc("/browse", ServeCmdBrowseHandler(ropts, opts))
 	http.HandleFunc("/download", ServeCmdDownloadHandler(ropts, opts))
+	logrus.Infof("Handlers registered")
 
 	// host and port
 	hostNPort := fmt.Sprintf("%s:%d", "localhost", opts.Port)
@@ -52,6 +53,7 @@ func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
 	if err != nil {
 		return util.WrapError(err, funcTag, "serving content")
 	}
+	logrus.Infof("Shutting down")
 	// })()
 
 	return nil

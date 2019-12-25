@@ -66,7 +66,8 @@ func ServeCmdDownloadHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(
 			// ensure dir exists
 			mkdir := filepath.Dir(newFilePath)
 			logrus.Infof("Ensuring Directory: %s", mkdir)
-			err = os.MkdirAll(mkdir, ropts.FileCreateMode)
+			err = os.MkdirAll(mkdir, 0700)
+			// err = os.MkdirAll(mkdir, ropts.FileCreateMode)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "mkdir "+mkdir)
 				http.Error(w, err.Error(), http.StatusBadRequest)

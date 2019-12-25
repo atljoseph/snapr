@@ -123,10 +123,16 @@ snapr snap --dir=my/base/dir --extra-dir=my/sub/dir
 snapr snap --dir=my/base/dir --users
 snapr snap --dir=my/base/dir --format=png --upload 
 snapr snap --file test.jpg --upload --cleanup
+snapr snap --file test.jpg --screen --upload --cleanup
+snapr snap --file test.jpg --camera --screen --upload --cleanup
 ```
+
+Please feel free to combine options.
 
 These OPTIONAL `.env` vars apply to the `snap` command flags:
 ```
+SNAP_SCREENSHOT=
+SNAP_CAMERA=
 SNAP_DEVICE=
 SNAP_DIR_EXTRA=
 SNAP_DIR=
@@ -162,7 +168,7 @@ UPLOAD_CLEANUP_AFTER_SUCCESS=
 UPLOAD_FORMATS=
 UPLOAD_LIMIT=
 UPLOAD_S3_DIR=
-UPLOAD_IS_PUBLIC=
+UPLOAD_PUBLIC=
 ```
 
 ## Serve Command

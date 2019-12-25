@@ -10,8 +10,10 @@ import (
 
 // SnapCmdOptions options
 type SnapCmdOptions struct {
-	OutDir             string
+	UseScreenshot      bool
+	UseCamera          bool
 	CaptureDeviceAddr  string
+	OutDir             string
 	OutDirExtra        string
 	OutFile            string
 	Format             string
@@ -49,6 +51,16 @@ func (opts *SnapCmdOptions) TransformPositionalArgs(args []string) *SnapCmdOptio
 func init() {
 	// add command to root
 	rootCmd.AddCommand(snapCmd)
+
+	// Create screenshot?
+	snapCmd.Flags().BoolVar(&snapCmdOpts.UseScreenshot,
+		"screen", util.EnvVarBool("SNAP_SCREENSHOT", false),
+		"(Optional) Create output file from screenshot")
+
+	// Create screenshot?
+	snapCmd.Flags().BoolVar(&snapCmdOpts.UseCamera,
+		"cam", util.EnvVarBool("SNAP_CAMERA", false),
+		"(Optional) Create output file from webcam - Use in combination with `--device`")
 
 	// capture device address
 	snapCmd.Flags().StringVar(&snapCmdOpts.CaptureDeviceAddr,

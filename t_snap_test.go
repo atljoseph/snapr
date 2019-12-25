@@ -19,37 +19,58 @@ type snapTest struct {
 }
 
 func Test1SnapCommand(t *testing.T) {
+
+	// ensure the temp directory exists
+	_, testTempDir, err := ensureTestDir("test-1")
+	if err != nil {
+		t.Errorf("could not create test temp dir: %s", testTempDir)
+	}
+	// clean up on fail
+	defer cleanupTestDir(testTempDir)
+
 	// define the tests
-	// OutDir is set on all these programmatically (below)
-	testCommandSnap(t, []snapTest{
-		{"basic with dir and auto-generate file name", true,
+	tests := []snapTest{
+		{"dir & auto-gen file name & default to webcam image", true,
 			&cli.SnapCmdOptions{}},
-		{"unsupported format", false,
+		{"dir & auto-gen file name & take webcam image", true,
+			&cli.SnapCmdOptions{
+				UseCamera: true,
+			}},
+		{"dir & auto-gen file name & take screenshot", true,
+			&cli.SnapCmdOptions{
+				UseScreenshot: true,
+			}},
+		{"dir & auto-gen file name & take BOTH screenshot and webcam", true,
+			&cli.SnapCmdOptions{
+				UseScreenshot: true,
+				UseCamera:     true,
+			}},
+		{"dir & unsupported format", false,
 			&cli.SnapCmdOptions{
 				Format: "xyz",
 			}},
-		{"supported format", true,
+		{"dir & supported format", true,
 			&cli.SnapCmdOptions{
 				Format: "png",
 			}},
-		{"invalid device address", false,
+		{"dir & invalid device address", false,
 			&cli.SnapCmdOptions{
 				CaptureDeviceAddr: "fake/device",
 			}},
-		{"basic with extra dir", true,
+		{"dir & extra dir", true,
 			&cli.SnapCmdOptions{
 				OutDirExtra: "extra",
 			}},
-		{"users dir with extra dir", true,
+		{"dir & extra & users dir", true,
 			&cli.SnapCmdOptions{
 				OutDirExtra: "extra",
 				OutDirUsers: true,
 			}},
-		{"custom file name", true,
+		{"dir & custom file name", true,
 			&cli.SnapCmdOptions{
 				OutFile: "test.jpg",
 			}},
-		{"custom file name with extra dir", true,
+		{"dir & extra dir & custom file name", true,
 			&cli.SnapCmdOptions{
 				OutDirExtra: "extra",
 				OutFile:     "test.jpg",
@@ -59,18 +80,19 @@ func Test1SnapCommand(t *testing.T) {
 				OutFile: "test.jpg",
 				Format:  "png", // should not create with this fmt
 			}},
-	})
+	}
+
+	// tack on the out dir with descriptions
+	for _, test := range tests {
+		// set the output dir (was lazy)
+		test.cmdOpts.OutDir = filepath.Join(testTempDir, test.description)
+	}
+
+	// OutDir is set on all these programmatically (below)
+	testCommandSnap(t, testTempDir, tests)
 }
 
-func testCommandSnap(t *testing.T, tests []snapTest) {
-
-	// ensure the temp directory exists
-	_, testTempDir, err := ensureTestDir("test-snap")
-	if err != nil {
-		t.Errorf("could not create test temp dir: %s", testTempDir)
-	}
-	// go ahead and clean up, then defer it for later, too
-	defer cleanupTestDir(testTempDir)
+func testCommandSnap(t *testing.T, testTempDir string, tests []snapTest) {
 
 	// get the list of logged in users
 	usersOutput, err := util.OSUsers()
@@ -82,13 +104,12 @@ func testCommandSnap(t *testing.T, tests []snapTest) {
 	for idx, test := range tests {
 		logrus.Infof("TEST %d (%s)", idx+1, test.description)
 
-		// set the output dir (was lazy)
-		test.cmdOpts.OutDir = filepath.Join(testTempDir, test.description)
-
 		// don't let these mutate
 		testOutDir := test.cmdOpts.OutDir // TODO: this is being ignored when custom file is used
 		testOutDirExtra := test.cmdOpts.OutDirExtra
 		testOutFile := test.cmdOpts.OutFile
+		testUseCamera := test.cmdOpts.UseCamera
+		testUseScreenshot := test.cmdOpts.UseScreenshot
 
 		// run test command
 		err = cli.SnapCmdRunE(testRootCmdOpts, test.cmdOpts)
@@ -142,8 +163,40 @@ func testCommandSnap(t *testing.T, tests []snapTest) {
 			}
 
 			// ensure not too many files
-			if len(files) > 1 {
-				t.Errorf(wrapSnapTestError(test, "too many output files. expected one"))
+			if !(testUseCamera && testUseScreenshot) {
+				// expect no more than one file
+				if len(files) > 1 {
+					t.Errorf(wrapSnapTestError(test, "too many output files. expected one"))
+				}
+			} else {
+				// should be at least 2 files
+				if len(files) < 2 {
+					t.Errorf(wrapSnapTestError(test, "not enough output files. expected at least 2"))
+				}
+			}
+
+			// TODO: check that 1 output file containing "screen" / "display" in filename
+			if testUseScreenshot {
+
+				// check for match in file name
+				match := false
+				for _, file := range files {
+
+					// see if filename contains "screen"
+					if strings.Contains(strings.ToLower(file.FileInfo.Name()), strings.ToLower("screen")) {
+						match = true
+					}
+
+					// exit loop on match
+					if match {
+						break
+					}
+				}
+
+				// error if no match
+				if !match {
+					t.Errorf(wrapSnapTestError(test, "could not find screenshot file"))
+				}
 			}
 
 			// check that the output is in the correct folder

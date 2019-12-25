@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kbinani/screenshot"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,7 +19,14 @@ import (
 // it is exported for testing
 func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 	funcTag := "SnapCmdRunE"
-	logrus.Infof(funcTag)
+	// logrus.Infof(funcTag)
+	var err error
+
+	// if neither screenshot or camera, default to camera
+	// allow both to be set
+	if !opts.UseCamera && !opts.UseScreenshot {
+		opts.UseCamera = true
+	}
 
 	// validate the format override
 	// TODO: add the format check for the file name override
@@ -28,16 +37,13 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 	}
 
 	// build the out file name
-	outFileName := ""
 	outFileNameTimeFormat := "2006-01-02T15-04-05"
 	if len(opts.Format) == 0 {
 		opts.Format = util.DefaultCaptureFormat()
 	}
-
-	fmt.Printf("%+v", opts)
+	fmt.Printf("Format: %s", opts.Format)
 
 	// handle the dir and file inputs
-	var err error
 	if len(opts.OutFile) > 0 {
 
 		// if dir is also set, join
@@ -123,88 +129,167 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 	}
 
 	// the complete out dir and file path
-	outFilePath := fmt.Sprintf("%s/%s", opts.OutDir, opts.OutFile)
-	logrus.Infof("Snapping %s", outFilePath)
+	outFilePath := filepath.Join(opts.OutDir, opts.OutFile)
+	logrus.Infof("Out File: %s", outFilePath)
 
 	// ensure output dir exists
 	mkdir := filepath.Dir(outFilePath)
-	logrus.Infof("Ensuring Directory: %s", mkdir)
-	err = os.MkdirAll(mkdir, ropts.FileCreateMode)
+	logrus.Infof("Mkdir: %s", mkdir)
+	err = os.MkdirAll(mkdir, 0700)
+	// err = os.MkdirAll(mkdir, ropts.FileCreateMode)
 	if err != nil {
 		return util.WrapError(err, funcTag, "mkdir for "+mkdir)
 	}
 
-	// input device driver
-	driverType := "-f "
-	if strings.EqualFold(runtime.GOOS, "linux") {
-		driverType += "video4linux2"
+	// track the of screenshot outputs
+	var screenShotFileNames []string
+
+	// take this block if using screenshot
+	if opts.UseScreenshot {
+
+		logrus.Infof("Target is screen")
+
+		// how many displays?
+		n := screenshot.NumActiveDisplays()
+
+		// include all displays
+		for i := 0; i < n; i++ {
+
+			// get the bounds of the screenshot
+			bounds := screenshot.GetDisplayBounds(i)
+
+			// capture
+			img, err := screenshot.CaptureRect(bounds)
+			if err != nil {
+				return util.WrapError(err, funcTag, "capture screenshot rectangle")
+			}
+
+			// remove the extension and replace with some extra stuff
+			extensionWithDot := filepath.Ext(outFilePath)
+			screenFileName := strings.ReplaceAll(outFilePath, extensionWithDot, "")
+			screenFileName = fmt.Sprintf("%s-screen-%d", screenFileName, i+1) + extensionWithDot
+
+			// track
+			screenShotFileNames = append(screenShotFileNames, screenFileName)
+
+			// write file
+			file, err := os.Create(screenFileName)
+			if err != nil {
+				return util.WrapError(err, funcTag, "create file for screenshot")
+			}
+			defer file.Close()
+
+			// write and encode the file
+			err = png.Encode(file, img)
+			if err != nil {
+				return util.WrapError(err, funcTag, "encode and write png file")
+			}
+
+			logrus.Infof("Screen Success: %s", screenFileName)
+		}
 	}
-	if strings.EqualFold(runtime.GOOS, "darwin") {
-		driverType += "avfoundation"
-	}
 
-	// resolution
-	resolution := "-s 640x480"
+	// track the number of webcam outputs
+	var webcamFileNames []string
 
-	// vframes are video frames
-	vframes := "-vframes 1"
+	// take this block if using camera
+	if opts.UseCamera {
 
-	// framerate only on mac
-	framerate := ""
-	if strings.EqualFold(runtime.GOOS, "darwin") {
-		framerate += "-framerate 30"
-	}
+		webcamFileNames = append(webcamFileNames, outFilePath)
 
-	// capture address
-	webcamAddr := "-i "
-	if len(opts.CaptureDeviceAddr) > 0 {
-		webcamAddr += opts.CaptureDeviceAddr
-	} else {
-		webcamAddr += util.DefaultCaptureDevice()
-	}
+		logrus.Infof("Target is camera")
 
-	// check if the ffmpeg command exists
-	_, err = exec.LookPath("ffmpeg")
-	if err != nil {
-		suggestion := "dependency issue ... please install ffmpeg: `%s`"
-		cmdSuggestion := ""
+		// input device driver
+		driverType := "-f "
 		if strings.EqualFold(runtime.GOOS, "linux") {
-			cmdSuggestion = "sudo apt install ffmpeg"
+			driverType += "video4linux2"
 		}
 		if strings.EqualFold(runtime.GOOS, "darwin") {
-			cmdSuggestion = "brew install ffmpeg"
+			driverType += "avfoundation"
 		}
-		suggestion = fmt.Sprintf(suggestion, cmdSuggestion)
-		logrus.Warnf(suggestion)
-		return util.WrapError(err, funcTag, suggestion)
-	}
 
-	// build the os cmd to execute
-	// capture command with ffmpeg
-	// overwrite existing file if any
-	ffmpegExecString := fmt.Sprintf("ffmpeg %s %s %s %s %s \"%s\" -y", driverType, framerate, resolution, webcamAddr, vframes, outFilePath)
-	logrus.Infof("Command: %s", ffmpegExecString)
-	ffmpegExec := exec.Command("/bin/sh", "-c", ffmpegExecString)
+		// resolution
+		resolution := "-s 640x480"
 
-	// execute and wait
-	err = ffmpegExec.Run()
-	if err != nil {
-		return util.WrapError(err, funcTag, "running command")
+		// vframes are video frames
+		vframes := "-vframes 1"
+
+		// framerate only on mac
+		framerate := ""
+		if strings.EqualFold(runtime.GOOS, "darwin") {
+			framerate += "-framerate 30"
+		}
+
+		// capture address
+		webcamAddr := "-i "
+		if len(opts.CaptureDeviceAddr) > 0 {
+			webcamAddr += opts.CaptureDeviceAddr
+		} else {
+			webcamAddr += util.DefaultCaptureDevice()
+		}
+
+		// check if the ffmpeg command exists
+		_, err = exec.LookPath("ffmpeg")
+		if err != nil {
+			suggestion := "dependency issue ... please install ffmpeg: `%s`"
+			cmdSuggestion := ""
+			if strings.EqualFold(runtime.GOOS, "linux") {
+				cmdSuggestion = "sudo apt install ffmpeg"
+			}
+			if strings.EqualFold(runtime.GOOS, "darwin") {
+				cmdSuggestion = "brew install ffmpeg"
+			}
+			suggestion = fmt.Sprintf(suggestion, cmdSuggestion)
+			logrus.Warnf(suggestion)
+			return util.WrapError(err, funcTag, suggestion)
+		}
+
+		// build the os cmd to execute
+		// capture command with ffmpeg
+		// overwrite existing file if any
+		ffmpegExecString := fmt.Sprintf("ffmpeg %s %s %s %s %s \"%s\" -y", driverType, framerate, resolution, webcamAddr, vframes, outFilePath)
+		logrus.Infof("Camera Command: %s", ffmpegExecString)
+		ffmpegExec := exec.Command("/bin/sh", "-c", ffmpegExecString)
+
+		// execute and wait
+		err = ffmpegExec.Run()
+		if err != nil {
+			return util.WrapError(err, funcTag, "running camera command")
+		}
+		logrus.Infof("Camera Success: %s", outFilePath)
 	}
-	logrus.Infof("Snapped %s", outFilePath)
 
 	// if upload required, call the upload command!
 	if opts.UploadAfterSuccess {
-		uOpts := &UploadCmdOptions{
-			InDir:               opts.OutDir,
-			InFile:              outFileName,
-			CleanupAfterSuccess: opts.CleanupAfterUpload,
+
+		// upload screenshots
+		for _, fileName := range screenShotFileNames {
+			uOpts := &UploadCmdOptions{
+				// InDir:               opts.OutDir,
+				InFile:              fileName,
+				CleanupAfterSuccess: opts.CleanupAfterUpload,
+			}
+			logrus.Infof("Running Upload for scrrenshot: %+v", uOpts)
+			err = UploadCmdRunE(ropts, uOpts)
+			if err != nil {
+				return util.WrapError(err, funcTag, "uploading after success")
+			}
 		}
-		logrus.Infof("Running Upload Command %+v", uOpts)
-		err = UploadCmdRunE(ropts, uOpts)
-		if err != nil {
-			return util.WrapError(err, funcTag, "uploading after success")
+
+		// upload webcams
+		for _, fileName := range webcamFileNames {
+			uOpts := &UploadCmdOptions{
+				// InDir:               opts.OutDir,
+				InFile:              fileName,
+				CleanupAfterSuccess: opts.CleanupAfterUpload,
+			}
+			logrus.Infof("Running Upload for webcam: %+v", uOpts)
+			err = UploadCmdRunE(ropts, uOpts)
+			if err != nil {
+				return util.WrapError(err, funcTag, "uploading after success")
+			}
 		}
+
 	}
 
 	// done

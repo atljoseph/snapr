@@ -14,7 +14,7 @@ type UploadCmdOptions struct {
 	Formats             []string
 	UploadLimit         int
 	S3Dir               string
-	IsPublic            bool
+	Public              bool
 }
 
 // upload command
@@ -78,7 +78,7 @@ func init() {
 		"(Optional) Upload Base S3 Key ... Directory")
 
 	// is this file public?
-	uploadCmd.Flags().BoolVar(&uploadCmdOpts.IsPublic,
-		"public", util.EnvVarBool("UPLOAD_IS_PUBLIC", false),
+	uploadCmd.Flags().BoolVar(&uploadCmdOpts.Public,
+		"public", util.EnvVarBool("UPLOAD_PUBLIC", false),
 		"(Optional) Use this to upload a publicly available file, otherwise its private. Requires a public S3!")
 }

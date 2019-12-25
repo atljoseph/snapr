@@ -59,7 +59,7 @@ func CheckS3FileExists(s3Client *s3.S3, bucket, key string) (bool, error) {
 }
 
 // SendToS3 sends a single file to an AWS S3 bucket
-func SendToS3(s3Client *s3.S3, bucket, acl string, waffle WalkedFile, targetKey string) (string, error) {
+func SendToS3(s3Client *s3.S3, bucket, acl string, waffle *WalkedFile, targetKey string) (string, error) {
 	funcTag := "SendToS3"
 
 	// Open the file for use
@@ -79,9 +79,7 @@ func SendToS3(s3Client *s3.S3, bucket, acl string, waffle WalkedFile, targetKey 
 		acl = "private"
 	}
 
-	// Config settings: this is where you choose the bucket, filename, content-type etc.
-	// of the file you're uploading.
-	_, err = s3Client.PutObject(&s3.PutObjectInput{
+	query := &s3.PutObjectInput{
 		Bucket:             aws.String(bucket),
 		Key:                aws.String(targetKey),
 		ACL:                aws.String(acl),
@@ -90,7 +88,13 @@ func SendToS3(s3Client *s3.S3, bucket, acl string, waffle WalkedFile, targetKey 
 		ContentType:        aws.String(http.DetectContentType(buffer)),
 		ContentDisposition: aws.String("attachment"),
 		// ServerSideEncryption: aws.String("AES256"),
-	})
+	}
+
+	// logrus.Infof("QUERY: %+v", *query)
+
+	// Config settings: this is where you choose the bucket, filename, content-type etc.
+	// of the file you're uploading.
+	_, err = s3Client.PutObject(query)
 	if err != nil {
 		return "", WrapError(err, funcTag, "uploading file")
 	}
@@ -102,15 +106,21 @@ func SendToS3(s3Client *s3.S3, bucket, acl string, waffle WalkedFile, targetKey 
 // S3Delimiter is the folder delimiter (for us) in AWS S3
 var S3Delimiter = "/"
 
-// S3ObjectsByKey sends a single file to an AWS S3 bucket
-func S3ObjectsByKey(s3Client *s3.S3, bucket string, key string) ([]*s3.Object, []string, error) {
-	funcTag := "S3ObjectsByKey"
+// ListS3ObjectsByKey sends a single file to an AWS S3 bucket
+// objects are "files"
+// commonKeys are "directories"
+func ListS3ObjectsByKey(s3Client *s3.S3, bucket, key string, useDelimiter bool) ([]*s3.Object, []string, error) {
+	funcTag := "ListS3ObjectsByKey"
 
 	// build the input
 	query := &s3.ListObjectsV2Input{
-		Bucket:    aws.String(bucket),
-		Prefix:    aws.String(key),
-		Delimiter: aws.String("/"),
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(key),
+	}
+
+	// recursive search ? use delimiter
+	if useDelimiter {
+		query.Delimiter = aws.String(S3Delimiter)
 	}
 
 	logrus.Infof("Fetching from: %s::%s", *query.Bucket, *query.Prefix)

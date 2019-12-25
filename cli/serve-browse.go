@@ -78,7 +78,7 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 			}
 
 			// get the object list
-			objects, commonKeys, err := util.S3ObjectsByKey(s3Client, ropts.Bucket, qpS3SubKey)
+			objects, commonKeys, err := util.ListS3ObjectsByKey(s3Client, ropts.Bucket, qpS3SubKey, true)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "get bucket contents info by key")
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -174,6 +174,9 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 func HandleImageDownloadWorker(awsSesh *session.Session, bucket, objectKey string, displayKey string, pageImages *[]*Object, wg *sync.WaitGroup) {
 	funcTag := "HandleImageDownloadWorker"
 
+	// be done, even if we encounter an error
+	defer wg.Done()
+
 	// download the object to byte slice
 	objBytes, err := util.DownloadS3Object(awsSesh, bucket, objectKey)
 	if err != nil {
@@ -188,6 +191,4 @@ func HandleImageDownloadWorker(awsSesh *session.Session, bucket, objectKey strin
 	})
 
 	// logrus.Infof("WORKER: (%d files) %s", len(*pageImages), displayKey)
-
-	wg.Done()
 }

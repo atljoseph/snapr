@@ -1,36 +1,77 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 
 	"snapr/cli"
 )
 
 func Test3SnapUploadCommand(t *testing.T) {
+
+	// ensure the temp directory exists
+	_, testTempDir, err := ensureTestDir("test-3")
+	if err != nil {
+		t.Errorf("could not create test temp dir: %s", testTempDir)
+	}
+	// clean up on fail
+	defer cleanupTestDir(testTempDir)
+
 	// define the tests
-	// OutDir is set on all these programmatically (below)
-	testCommandSnap(t, []snapTest{
-		{"snap with upload and no cleanup", true,
+	tests := []snapTest{
+		{"dir & file & no cleanup", true,
 			&cli.SnapCmdOptions{
 				OutFile:            "toUpload.jpg",
 				UploadAfterSuccess: true,
 			}},
-		{"snap with upload, then cleanup", true,
+		{"dir & file & cleanup", true,
 			&cli.SnapCmdOptions{
 				OutFile:            "toUploadAndRemove.jpg",
 				UploadAfterSuccess: true,
 				CleanupAfterUpload: true,
 			}},
-		{"snap with upload and users dir", true,
+		{"dir & users", true,
 			&cli.SnapCmdOptions{
 				OutDirUsers:        true,
 				UploadAfterSuccess: true,
 			}},
-		{"snap with upload and users dir and extra dir", true,
+		{"dir & extra dir & users", true,
 			&cli.SnapCmdOptions{
 				OutDirExtra:        "extra",
 				OutDirUsers:        true,
 				UploadAfterSuccess: true,
 			}},
-	})
+		{"dir & webcam image", true,
+			&cli.SnapCmdOptions{
+				UseCamera:          true,
+				UploadAfterSuccess: true,
+			}},
+		{"dir & screenshot", true,
+			&cli.SnapCmdOptions{
+				UseScreenshot:      true,
+				UploadAfterSuccess: true,
+			}},
+		{"dir & BOTH screenshot and webcam", true,
+			&cli.SnapCmdOptions{
+				UseScreenshot:      true,
+				UseCamera:          true,
+				UploadAfterSuccess: true,
+			}},
+		{"dir & BOTH screenshot and webcam & cleanup", true,
+			&cli.SnapCmdOptions{
+				UseScreenshot:      true,
+				UseCamera:          true,
+				UploadAfterSuccess: true,
+				CleanupAfterUpload: true,
+			}},
+	}
+
+	// tack on the out dir with descriptions
+	for _, test := range tests {
+		// set the output dir (was lazy)
+		test.cmdOpts.OutDir = filepath.Join(testTempDir, test.description)
+	}
+
+	// OutDir is set on all these programmatically (below)
+	testCommandSnap(t, testTempDir, tests)
 }

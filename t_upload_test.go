@@ -69,11 +69,11 @@ var uploadCommandTests = []uploadTest{
 func Test2CommandUpload(t *testing.T) {
 
 	// ensure the temp directory exists
-	_, testTempDir, err := ensureTestDir("test-upload")
+	_, testTempDir, err := ensureTestDir("test-2")
 	if err != nil {
 		t.Errorf("could not create test temp dir: %s", testTempDir)
 	}
-	// go ahead and clean up, then defer it for later, too
+	// clean up on fail
 	defer cleanupTestDir(testTempDir)
 
 	// ensure a test file exists
