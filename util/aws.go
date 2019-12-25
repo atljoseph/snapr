@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -58,7 +59,7 @@ func CheckS3FileExists(s3Client *s3.S3, bucket, key string) (bool, error) {
 }
 
 // SendToS3 sends a single file to an AWS S3 bucket
-func SendToS3(s3Client *s3.S3, bucket string, waffle WalkedFile, targetKey string) (string, error) {
+func SendToS3(s3Client *s3.S3, bucket, acl string, waffle WalkedFile, targetKey string) (string, error) {
 	funcTag := "SendToS3"
 
 	// Open the file for use
@@ -73,12 +74,17 @@ func SendToS3(s3Client *s3.S3, bucket string, waffle WalkedFile, targetKey strin
 	buffer := make([]byte, fileSize)
 	file.Read(buffer)
 
+	// default the acl
+	if len(acl) == 0 {
+		acl = "private"
+	}
+
 	// Config settings: this is where you choose the bucket, filename, content-type etc.
 	// of the file you're uploading.
 	_, err = s3Client.PutObject(&s3.PutObjectInput{
 		Bucket:             aws.String(bucket),
 		Key:                aws.String(targetKey),
-		ACL:                aws.String("private"),
+		ACL:                aws.String(acl),
 		Body:               bytes.NewReader(buffer),
 		ContentLength:      aws.Int64(fileSize),
 		ContentType:        aws.String(http.DetectContentType(buffer)),
@@ -173,4 +179,33 @@ func DownloadS3Object(sesh *session.Session, bucket, key string) ([]byte, error)
 	}
 
 	return buff.Bytes(), nil
+}
+
+// GetS3BucketDefaultACL gets the default ACL for a bucket
+func GetS3BucketDefaultACL(s3Client *s3.S3, bucket string) (string, error) {
+	funcTag := "GetS3BucketDefaultACL"
+
+	params := &s3.GetBucketAclInput{Bucket: &bucket}
+
+	result, err := s3Client.GetBucketAcl(params)
+	if err != nil {
+		return "", WrapError(err, funcTag, "getting bucket acl from s3")
+	}
+
+	logrus.Infof("ACL RESULT: %+v", result)
+
+	for _, g := range result.Grants {
+		// If we add a canned ACL, the name is nil
+		if g.Grantee.DisplayName == nil {
+			fmt.Println("  Grantee:    EVERYONE")
+		} else {
+			fmt.Println("  Grantee:   ", *g.Grantee.DisplayName)
+		}
+
+		fmt.Println("  Type:      ", *g.Grantee.Type)
+		fmt.Println("  Permission:", *g.Permission)
+		fmt.Println("")
+	}
+
+	return "public-read", nil
 }

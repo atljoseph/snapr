@@ -102,6 +102,7 @@ To run just the `upload` command tests:
 ```
 go test -run=2
 ```
+The `--public` flag is not included in automated tested.
 
 To test a combination of the `snap` and `upload` commands:
 ```
@@ -140,15 +141,18 @@ SNAP_CLEANUP_AFTER_UPLOAD=
 
 To upload a photo to an AWS bucket:
 ```
-snapr upload --file=my/in/file.ext
+snapr upload --file=my/in/file.ext 
 snapr upload --file=my/in/file.ext --s3-dir dir/in/s3
 snapr upload --file=my/in/file.ext --cleanup
 snapr upload --dir=my/base/dir 
+snapr upload --dir=my/base/dir --public
 snapr upload --dir=my/base/dir --limit=10
 snapr upload --dir=my/base/dir --limit=10 --formats=png,jpg
 ```
 
 If `--formats` is not specified, then all files are uploaded.
+
+If `--public` is not specified, then all files are `private`.
 
 These OPTIONAL `.env` vars apply to the `upload` command flags:
 ```
@@ -158,6 +162,7 @@ UPLOAD_CLEANUP_AFTER_SUCCESS=
 UPLOAD_FORMATS=
 UPLOAD_LIMIT=
 UPLOAD_S3_DIR=
+UPLOAD_IS_PUBLIC=
 ```
 
 ## Serve Command

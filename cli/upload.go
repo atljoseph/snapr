@@ -118,7 +118,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		}
 	}
 
-	logrus.Infof("Got %d files before filtering", len(files))
+	logrus.Infof("Got %d file(s)", len(files))
 
 	// TODO: order the files with the oldest first and newest last
 
@@ -154,15 +154,23 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	}
 
 	// attempt to chop off a slice of these equal to the limit input
-	length := len(filteredFiles)
+	uploadLimit := len(filteredFiles)
 	// if upload limit is greater than 1, take the minimum of the length of files and the limit
 	if opts.UploadLimit > 1 {
-		length = util.MinInt(opts.UploadLimit, len(filteredFiles))
+		uploadLimit = util.MinInt(opts.UploadLimit, len(filteredFiles))
 	}
 
 	// truncate filtered files
-	filteredFiles = filteredFiles[0:length]
-	logrus.Infof("Got %d files to upload", len(filteredFiles))
+	filteredFiles = filteredFiles[0:uploadLimit]
+	logrus.Infof("Uploading %d file(s)", len(filteredFiles))
+
+	// set the object acl to "private"
+	acl := "private"
+	// unless set to public
+	if uploadCmdOpts.IsPublic {
+		acl = "public-read"
+	}
+	logrus.Infof("With Access ACL: %s", acl)
 
 	// loop to upload the files
 	for _, file := range filteredFiles {
@@ -177,7 +185,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		}
 
 		// send to AWS
-		key, err := util.SendToS3(s3Client, ropts.Bucket, file, key)
+		key, err := util.SendToS3(s3Client, ropts.Bucket, acl, file, key)
 		if err != nil {
 			return util.WrapError(err, funcTag, "sending file to aws")
 		}
