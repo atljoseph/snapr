@@ -20,46 +20,46 @@ type uploadTest struct {
 // define the tests
 // InDir is set on all these programmatically (below)
 var uploadCommandTests = []uploadTest{
-	{"explicitly defined file when does not exist", false,
+	{"file name when does not exist", false,
 		&cli.UploadCmdOptions{
 			InFile: "xyz.jpg",
 		}},
-	{"explicitly defined file when exists", true,
+	{"file name when exists", true,
 		&cli.UploadCmdOptions{
 			InFile: "t_test.jpg",
 		}},
-	{"explicitly defined file with s3 base dir", true,
+	{"file name & s3 base dir", true,
 		&cli.UploadCmdOptions{
 			InFile: "t_test.jpg",
 			S3Dir:  "test-base-dir",
 		}},
-	{"mismatched format, should fail", false,
+	{"file & mismatched format, should fail", false,
 		&cli.UploadCmdOptions{
 			InFile:  "t_test.jpg",
 			Formats: []string{"png"},
 		}},
-	{"specific format", true,
+	{"file & matched format filter", true,
 		&cli.UploadCmdOptions{
 			InFile:  "t_test.jpg",
 			Formats: []string{"jpg"},
 		}},
-	{"directory without file, should upload one test file", true,
+	{"dir & no file, should upload one test file", true,
 		&cli.UploadCmdOptions{}},
-	{"directory without file and with limit, should upload multiple", true,
+	{"dir & file & limit, should upload multiple", true,
 		&cli.UploadCmdOptions{
 			UploadLimit: 3,
 		}},
-	{"directory without file and with limit and base s3 dir", true,
+	{"dir & file & limit & base s3 dir", true,
 		&cli.UploadCmdOptions{
 			UploadLimit: 3,
 			S3Dir:       "test-base-dir",
 		}},
-	{"upload limit too high, should fail", false,
+	{"dir & upload limit too high, should fail", false,
 		&cli.UploadCmdOptions{
 			UploadLimit: 101,
 		}},
 	// this should always be the last test
-	{"cleanup after success", true,
+	{"dir & limit more than exists & cleanup after success", true,
 		&cli.UploadCmdOptions{
 			UploadLimit:         10,
 			CleanupAfterSuccess: true,

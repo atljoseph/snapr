@@ -141,6 +141,8 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 		return util.WrapError(err, funcTag, "mkdir for "+mkdir)
 	}
 
+	// TODO: put the screenshots and webcam on parallel
+
 	// track the of screenshot outputs
 	var screenShotFileNames []string
 
@@ -258,6 +260,8 @@ func SnapCmdRunE(ropts *RootCmdOptions, opts *SnapCmdOptions) error {
 		}
 		logrus.Infof("Camera Success: %s", outFilePath)
 	}
+
+	// TODO: put these all on separate goroutines with errgroup
 
 	// if upload required, call the upload command!
 	if opts.UploadAfterSuccess {

@@ -194,7 +194,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	}
 	logrus.Infof("With Access ACL: %s", acl)
 
-	// TODO: Candidate for a wait group?
+	// TODO: put these all on separate goroutines with errgroup
 
 	// loop to upload the files
 	for _, file := range filteredFiles {
