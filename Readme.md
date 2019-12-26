@@ -114,7 +114,7 @@ The `serve` command is not currently tested.
 
 ## Snap Command
 
-To snap a webcam photo:
+To snap a webcam or screenshot photo:
 ```
 snapr snap
 snapr snap --help
@@ -122,6 +122,10 @@ snapr snap --dir=my/base/dir
 snapr snap --dir=my/base/dir --device=/dev/video1
 snapr snap --dir=my/base/dir --extra-dir=my/sub/dir
 snapr snap --dir=my/base/dir --users
+```
+
+To trigger the photo(s) & upload to an S3 bucket at the same time:
+```
 snapr snap --dir=my/base/dir --format=png --upload 
 snapr snap --file test.jpg --upload --cleanup
 snapr snap --file test.jpg --screen --upload --cleanup
@@ -146,7 +150,7 @@ SNAP_CLEANUP_AFTER_UPLOAD=
 
 ## Upload Command
 
-To upload a photo to an AWS bucket:
+To upload a file or directory to an AWS bucket:
 ```
 snapr upload --file=my/in/file.ext 
 snapr upload --file=my/in/file.ext --s3-dir dir/in/s3
@@ -170,6 +174,35 @@ UPLOAD_FORMATS=
 UPLOAD_LIMIT=
 UPLOAD_S3_DIR=
 UPLOAD_PUBLIC=
+```
+
+## Delete Command
+
+To delete a file or directory from an AWS bucket:
+```
+snapr delete --s3-key=path/to/object.ext 
+snapr delete --s3-key=path/to/dir --is-dir
+```
+
+These OPTIONAL `.env` vars apply to the `delete` command flags:
+```
+DELETE_S3_KEY=
+DELETE_IS_DIR=
+```
+
+## Rename Command
+
+To rename a file or directory from an AWS bucket:
+```
+snapr rename --s3-source-key=path/to/original.ext --s3-dest-key=path/to/destination.ext 
+snapr rename --s3-source-key=path/to/origDir --s3-dest-key=path/to/destDir --is-dir
+```
+
+These OPTIONAL `.env` vars apply to the `rename` command flags:
+```
+RENAME_S3_SOURCE_KEY=
+RENAME_S3_DEST_KEY=
+RENAME_IS_DIR=
 ```
 
 ## Serve Command

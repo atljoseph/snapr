@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"snapr/util"
 	"text/template"
 )
@@ -31,52 +32,136 @@ var serveCmdTmpls = []Template{
 		</body></html>`,
 	},
 	Template{
-		Name: `js-xhr-post`,
+		Name: `js-util`,
 		Markup: `
-		function postAjax(url, data) {
-			var params = typeof data == 'string' ? data : Object.keys(data).map(
-					function(k){ return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]) }
-				).join('&');
-		
-			var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
-			xhr.open('POST', url);
-			xhr.onreadystatechange = function() {
-				if (xhr.readyState>3 && xhr.status==200) { success(xhr.responseText); }
-				else console.log(xhr.responseText)
-			};
-			xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-			xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-			xhr.send(params);
-			return xhr;
-		}
-		
-		postAjax('http://localhost:8080/download?key=photo-albums.json', { p1: 1, p2: 'Hello World' });`,
+		<script>
+			const message = (msg, elemId) => {
+				const msgElem = document.getElementById(elemId)
+				if (msgElem) { msgElem.innerHTML = msg }
+			}
+			const removeElem = (elemId) => {
+				const elem = document.getElementById(elemId)
+				if (elem) { elem.parentNode.removeChild(elem) } 
+				else { console.error("Expecting element named " + elemId + ", but did not find one") }
+			}
+			const disableItem = (elemId) => {
+				console.log(elemId)
+				const elem = document.getElementById(elemId)
+				if (elem) { 
+					const inputs = elem.querySelectorAll('button, input') 
+					if (inputs && inputs.length) {
+						for (i=0; i < inputs.length; i++) { 
+							if (inputs[i]) { inputs[i].remove() } 
+						}
+					}
+					elem.style.background = 'lightpink'
+					elem.disabled = true
+				} 
+				else { console.error("Expecting element named " + elemId + ", but did not find one") }
+			}
+			const post = async (url, data) => {
+				const options = {
+					method: 'POST',
+					body: JSON.stringify(data),
+					headers: { 'Content-Type': 'application/json' }
+				}
+				let res
+				try {
+					res = await fetch(url, options)
+					console.log(res)
+					if (res && res.ok) { 
+						return await res.json() 
+					} else {
+						throw await res.text()	
+					}
+				} catch (err) {
+					console.error(err)
+					message(err, "message")
+					throw err
+				}
+			}
+			// post('http://localhost:8080/download?key=photo-albums.json', { p1: 1, p2: 'Hello World' }).then(res => console.log(res)).catch(err => console.log(err));
+		</script>`,
 	},
 	Template{
 		Name: `browse`,
 		Markup: `
 		{{ template "page-start" }}
+			{{ template "js-util" }}
+			<script>
+				const msgElemId = 'message'
+				const downloadKey = (key) => {
+					post('download', { key })
+						.then(res => { message(res.message, msgElemId) })
+						.catch(err => { message(err, msgElemId) })
+				}
+				const deleteKey = (type, key) => {
+					const body = { key }
+					if (type == 'dir') {
+						console.log('deleting directory')
+						body.is_dir = true
+					}
+					post('delete', body)
+						.then(res => {
+							message(res.message, msgElemId)
+							removeElem(key + '-' + type)
+						})
+						.catch(err => { message(err, msgElemId) })
+				}
+				const renameKey = (type, src_key) => {
+					const elemId = src_key + '-' + type + '-input'
+					const elemInput = document.getElementById(elemId);
+					console.log(elemInput)
+					if (elemInput) {
+						const body = { src_key, dest_key: elemInput.value }
+						console.log(body)
+						if (type == 'dir') {
+							console.log('renaming directory')
+							body.is_dir = true
+						}
+						post('rename', body)
+							.then(res => { 
+								message(res.message, msgElemId) 
+								disableItem(src_key + '-' + type)
+							})
+							.catch(err => { message(err, msgElemId) })
+					}
+					else { console.error("Expecting element named " + elemId + ", but did not find one") }
+				}
+			</script>
+			<div>
+				<span id="message"><span>
+			</div>
 			{{range .Folders}}
-			<p>
+			<div id="{{.DisplayKey}}-dir">
 				<a href="browse?dir={{.Key}}">{{.DisplayKey}}</a>
-			</p>
+				&nbsp;<button onclick="deleteKey('dir', '{{.DisplayKey}}')">Delete</button>
+				&nbsp;<button onclick="renameKey('dir', '{{.DisplayKey}}')">Rename</button>
+				&nbsp;<input id="{{.DisplayKey}}-dir-input" value="{{.DisplayKey}}"></input>
+			</div>
 			{{end}}
 			{{range .Files}}
-			<p>
+			<div id="{{.DisplayKey}}-file">
 				<p>
 					{{.DisplayKey}}
-					&nbsp;<a href="download?key={{.DisplayKey}}">Download</a>
+					&nbsp;<button onclick="downloadKey('{{.DisplayKey}}')">Download</button>
+					&nbsp;<button onclick="deleteKey('file', '{{.DisplayKey}}')">Delete</button>
+					&nbsp;<button onclick="renameKey('file', '{{.DisplayKey}}')">Rename</button>
+					&nbsp;<input id="{{.DisplayKey}}-file-input" value="{{.DisplayKey}}"></input>
 				</p>
-			</p>
+			</div>
 			{{end}}
 			{{range .Images}}
-			<span>
+			<div id="{{.DisplayKey}}-image">
 				<p>
 					{{.DisplayKey}}
-					&nbsp;<a href="download?key={{.DisplayKey}}">Download</a>
+					&nbsp;<button onclick="downloadKey('{{.DisplayKey}}')">Download</button>
+					&nbsp;<button onclick="deleteKey('image', '{{.DisplayKey}}')">Delete</button>
+					&nbsp;<button onclick="renameKey('image', '{{.DisplayKey}}')">Rename</button>
+					&nbsp;<input id="{{.DisplayKey}}-image-input" value="{{.DisplayKey}}"></input>
 				</p>
 				<img src="data:image/jpg;base64,{{.Base64}}">
-			</span>
+			</div>
 			{{end}}
 		{{ template "page-end" }}`,
 	},
@@ -105,7 +190,7 @@ func ParseTemplates() (*template.Template, error) {
 	for _, tmpl := range serveCmdTmpls {
 		t, err = t.New(tmpl.Name).Parse(tmpl.Markup)
 		if err != nil {
-			return t, util.WrapError(err, funcTag, "parsing configured template")
+			return t, util.WrapError(err, funcTag, fmt.Sprintf("parsing configured template: %s", tmpl.Name))
 		}
 	}
 	return t, nil

@@ -40,6 +40,9 @@ func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
 	// set up handlers
 	http.HandleFunc("/browse", ServeCmdBrowseHandler(ropts, opts))
 	http.HandleFunc("/download", ServeCmdDownloadHandler(ropts, opts))
+	http.HandleFunc("/delete", ServeCmdDeleteHandler(ropts, opts))
+	http.HandleFunc("/rename", ServeCmdRenameHandler(ropts, opts))
+	http.HandleFunc("/", ServeCmd404NotFoundHandler(ropts, opts))
 	logrus.Infof("Handlers registered")
 
 	// host and port
@@ -57,4 +60,12 @@ func ServeCmdRunE(ropts *RootCmdOptions, opts *ServeCmdOptions) error {
 	// })()
 
 	return nil
+}
+
+// ServeCmd404NotFoundHandler catches all 404s
+func ServeCmd404NotFoundHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logrus.Warnf("404 NotFound: %s, %s, %s", r.Method, r.URL, r.RequestURI)
+		http.Error(w, "Invalid Request. Endpoint not defined.", http.StatusNotFound)
+	}
 }

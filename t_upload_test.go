@@ -176,7 +176,7 @@ func Test2CommandUpload(t *testing.T) {
 				keyToConfirm = filepath.Base(keyToConfirm)
 
 				// check if the file exists in aws
-				exists, err := util.CheckS3FileExists(s3Client, testRootCmdOpts.Bucket, keyToConfirm)
+				exists, err := util.CheckS3ObjectExists(s3Client, testRootCmdOpts.Bucket, keyToConfirm)
 				if err != nil {
 					logrus.Warnf("check file exists in aws: %s", err)
 				}

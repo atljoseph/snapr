@@ -109,7 +109,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		// based on the indir, walk all files
 		files, err = util.WalkFiles(opts.InDir)
 		if err != nil {
-			return util.WrapError(err, funcTag, fmt.Sprintf("walking dir for files to upload: %s", opts.InDir))
+			return util.WrapError(err, funcTag, fmt.Sprintf("failed to walk dir for files to upload: %s", opts.InDir))
 		}
 	}
 
@@ -163,7 +163,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	// get a new aws session
 	_, s3Client, err := util.NewS3Client(ropts.S3Config)
 	if err != nil {
-		return util.WrapError(err, funcTag, "get new aws session")
+		return util.WrapError(err, funcTag, "failed to get new s3 client")
 	}
 
 	// get the base s3 key, if any
@@ -201,10 +201,12 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 		logrus.Infof("Uploading %+v", file)
 
+		// TODO: Upload command from windows uploads with "D:\some\dir"
+
 		// send to AWS
-		_, err := util.SendToS3(s3Client, ropts.Bucket, acl, file, file.S3Key)
+		_, err := util.WriteS3File(s3Client, ropts.Bucket, acl, file.S3Key, file)
 		if err != nil {
-			return util.WrapError(err, funcTag, "sending file to aws")
+			return util.WrapError(err, funcTag, "failed to send file to s3")
 		}
 
 		logrus.Infof("Done w/ key: %s", file.S3Key)
@@ -215,7 +217,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 			// remove the file from the os if desired
 			err = os.Remove(file.Path)
 			if err != nil {
-				return util.WrapError(err, funcTag, "removing the file after upload")
+				return util.WrapError(err, funcTag, "failed to remove local file from disk after upload")
 			}
 
 			logrus.Infof("Cleaned up file: %s", file.Path)

@@ -3,3 +3,5 @@ snapr
 snapr.exe
 *.jpg
 *.json
+*.png
+*.svg
