@@ -84,7 +84,7 @@ The `serve` command is not currently tested.
 
 ## Snap Command
 
-To snap a webcam or screenshot photo:
+To `snap` a webcam or screenshot photo:
 ```
 snapr snap
 snapr snap --help
@@ -118,22 +118,38 @@ SNAP_UPLOAD_AFTER_SUCCESS=
 SNAP_CLEANUP_AFTER_UPLOAD=
 ```
 
+
+## Download Command
+
+To `download` from a bucket to your computer:
+```
+snapr download --s3-key=path/to/origs --s3-is-dir
+snapr download --s3-key=path/to/origs/original.ext --work-dir /home/my/desktop
+```
+
+These OPTIONAL `.env` vars apply to the `rename` command flags:
+```
+DOWNLOAD_WORK_DIR=
+DOWNLOAD_S3_KEY=
+DOWNLOAD_S3_IS_DIR=
+```
+
 ## Upload Command
 
-To upload a file or directory to an AWS bucket:
+To `upload` a file or directory to an AWS bucket:
 ```
 snapr upload --file=my/in/file.ext 
 snapr upload --file=my/in/file.ext --s3-dir dir/in/s3
 snapr upload --file=my/in/file.ext --cleanup
 snapr upload --dir=my/base/dir 
-snapr upload --dir=my/base/dir --public
+snapr upload --dir=my/base/dir --s3-is-public
 snapr upload --dir=my/base/dir --limit=10
 snapr upload --dir=my/base/dir --limit=10 --formats=png,jpg
 ```
 
 If `--formats` is not specified, then all files are uploaded.
 
-If `--public` is not specified, then all files are `private`.
+If `--s3-is-public` is not specified, then all files are `private`.
 
 These OPTIONAL `.env` vars apply to the `upload` command flags:
 ```
@@ -143,36 +159,48 @@ UPLOAD_CLEANUP_AFTER_SUCCESS=
 UPLOAD_FORMATS=
 UPLOAD_LIMIT=
 UPLOAD_S3_DIR=
-UPLOAD_PUBLIC=
+UPLOAD_S3_IS_PUBLIC=
 ```
 
 ## Delete Command
 
-To delete a file or directory from an AWS bucket:
+To `delete` a file or directory from an AWS bucket:
 ```
 snapr delete --s3-key=path/to/object.ext 
-snapr delete --s3-key=path/to/dir --is-dir
+snapr delete --s3-key=path/to/dir --is3-s-dir
 ```
 
 These OPTIONAL `.env` vars apply to the `delete` command flags:
 ```
 DELETE_S3_KEY=
-DELETE_IS_DIR=
+DELETE_S3_IS_DIR=
 ```
 
-## Rename Command
+## Rename / Copy Command
 
-To rename a file or directory from an AWS bucket:
+To `rename (or copy)` from one bucket to another (or same bucket):
 ```
-snapr rename --s3-source-key=path/to/original.ext --s3-dest-key=path/to/destination.ext 
-snapr rename --s3-source-key=path/to/origDir --s3-dest-key=path/to/destDir --is-dir
+snapr rename --s3-src-key=path/to/original.ext --s3-dest-key=path/to/dest.ext
+snapr rename --s3-src-key=path/to/original.ext --s3-dest-key=path/to/dest.ext --s3-dest-bucket other-bucket --copy
+snapr rename --s3-src-key=path/to/orig --src-is-dir --s3-dest-key=path/to/dest
+snapr rename --s3-src-key=path/to/orig --src-is-dir --s3-dest-key=path/to/dest --s3-dest-bucket other-bucket --copy
+snapr rename --copy --s3-src-key=originals --s3-dest-bucket=my.public.bucket --s3-dest-key=originals --s3-dest-is-public --s3-src-is-dir
 ```
 
 These OPTIONAL `.env` vars apply to the `rename` command flags:
 ```
-RENAME_S3_SOURCE_KEY=
+RENAME_S3_SRC_KEY=
 RENAME_S3_DEST_KEY=
-RENAME_IS_DIR=
+RENAME_S3_DEST_BUCKET=
+RENAME_SRC_IS_DIR=
+RENAME_IS_COPY_OPERATION=
+```
+
+# TODO: Doc process command
+
+```
+snapr process --rebuild-all --s3-bucket=my.public.bucket --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024
+snapr process --s3-bucket=my.public.bucket --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024
 ```
 
 ## Serve Command
@@ -187,6 +215,10 @@ snapr serve --work-dir=/Users/me
 snapr serve --port=8081
 snapr serve --work-dir=/Users/me/Desktop --s3-dir=test
 ```
+
+Then, in a browser, go to the address the CLI indicates.
+BE VERY CAREFUL what you click :)
+With great power comes great responsibility!
 
 These OPTIONAL `.env` vars apply to the `serve` command flags:
 ```

@@ -51,6 +51,6 @@ func init() {
 
 	// file override ... optional
 	deleteCmd.Flags().BoolVar(&deleteCmdOpts.IsDir,
-		"is-dir", util.EnvVarBool("DELETE_IS_DIR", false),
+		"s3-is-dir", util.EnvVarBool("DELETE_S3_IS_DIR", false),
 		"(Optional) Set this option to delete an entire S3 directory")
 }

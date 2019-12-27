@@ -25,6 +25,19 @@ type S3Accessor struct {
 	Secret string
 }
 
+// S3Object is a wrapper for an aws object
+type S3Object struct {
+	Bytes     []byte
+	Base64    string
+	Key       string
+	Extension string
+}
+
+// S3Directory is a wrapper for an aws folder
+type S3Directory struct {
+	Key string
+}
+
 // NewS3Client gets a new AWS session in a structured way
 func NewS3Client(config *S3Accessor) (*session.Session, *s3.S3, error) {
 	funcTag := "NewS3Client"
@@ -49,12 +62,16 @@ func CheckS3ObjectExists(s3Client *s3.S3, bucket, key string) (bool, error) {
 
 	// logrus.Infof("Check Key: %s", key)
 
-	_, err := s3Client.HeadObject(&s3.HeadObjectInput{
+	// build the query
+	query := &s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
-	})
+	}
+
+	// check for the object
+	_, err := s3Client.HeadObject(query)
 	if err != nil {
-		return false, WrapError(err, funcTag, "failed check s3 object")
+		return false, WrapError(err, funcTag, fmt.Sprintf("failed check s3 object with query: %+v", query))
 	}
 
 	return true, nil
@@ -88,7 +105,7 @@ func WriteS3Bytes(s3Client *s3.S3, bucket, acl, targetKey string, buffer []byte)
 		acl = "private"
 	}
 
-	// content length bneeds to be int64
+	// content length needs to be int64
 	contentLength := int64(len(buffer))
 
 	// build the query
@@ -103,13 +120,11 @@ func WriteS3Bytes(s3Client *s3.S3, bucket, acl, targetKey string, buffer []byte)
 		// ServerSideEncryption: aws.String("AES256"),
 	}
 
-	// logrus.Infof("QUERY: %+v", *query)
-
 	// Config settings: this is where you choose the bucket, filename, content-type etc.
 	// of the file you're uploading.
 	_, err := s3Client.PutObject(query)
 	if err != nil {
-		return "", WrapError(err, funcTag, "failed to upload file")
+		return "", WrapError(err, funcTag, fmt.Sprintf("failed to upload file with query: %+v", query))
 	}
 
 	// return if no error
@@ -123,7 +138,10 @@ var S3Delimiter = "/"
 func JoinS3Path(p1, p2 string) string {
 	result := p1
 	if len(result) > 0 && len(p2) > 0 {
-		result += S3Delimiter
+		lastCharIsDelimiter := strings.EqualFold(string(result[len(result)-1]), S3Delimiter)
+		if !lastCharIsDelimiter {
+			result += S3Delimiter
+		}
 	}
 	result += p2
 	return result
@@ -135,7 +153,6 @@ func EnsureS3DirPath(path string) string {
 	result := path
 	if len(result) > 0 {
 		lastCharIsDelimiter := strings.EqualFold(string(result[len(result)-1]), S3Delimiter)
-		// if there is a length of string, add a delimiter
 		if !lastCharIsDelimiter {
 			result += S3Delimiter
 		}
@@ -171,16 +188,21 @@ func ListS3ObjectsByKey(s3Client *s3.S3, bucket, key string, useDelimiter bool) 
 		// get the list of contents
 		response, err := s3Client.ListObjectsV2(query)
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
+			// cast error as aws err
+			// custom message for different sitches
+			msg := ""
+			aerr, ok := err.(awserr.Error)
+			if ok {
 				switch aerr.Code() {
 				case s3.ErrCodeNoSuchBucket:
-					return files, folders, WrapError(aerr, funcTag, s3.ErrCodeNoSuchBucket)
+					msg = fmt.Sprintf("%s with query: %+v", s3.ErrCodeNoSuchBucket, query)
 				default:
-					return files, folders, WrapError(aerr, funcTag, "unspecified error; ok")
+					msg = fmt.Sprintf("unspecified error; ok with query: %+v", query)
 				}
 			} else {
-				return files, folders, WrapError(aerr, funcTag, "unspecified error; not ok")
+				msg = fmt.Sprintf("unspecified error; NOT ok with query: %+v", query)
 			}
+			return files, folders, WrapError(aerr, funcTag, msg)
 		}
 		// logrus.Infof("Fetched %+v", response)
 
@@ -240,7 +262,7 @@ func DownloadS3Object(s3Client *s3.S3, bucket, key string) ([]byte, error) {
 	// download the object
 	_, err := downloader.Download(buff, query)
 	if err != nil {
-		return []byte{}, WrapError(err, funcTag, "failed to download to buffer")
+		return []byte{}, WrapError(err, funcTag, fmt.Sprintf("failed to download to buffer with quer: %+v", query))
 	}
 
 	return buff.Bytes(), nil
@@ -259,7 +281,7 @@ func DeleteS3Object(s3Client *s3.S3, bucket, key string) error {
 	// remove the object from the bucket
 	_, err := s3Client.DeleteObject(query)
 	if err != nil {
-		return WrapError(err, funcTag, "failed to delete object")
+		return WrapError(err, funcTag, fmt.Sprintf("failed to delete object with query: %+v", query))
 	}
 
 	return nil
@@ -267,30 +289,17 @@ func DeleteS3Object(s3Client *s3.S3, bucket, key string) error {
 
 // RenameS3Object renames an object in S3 and returns an error, if any
 // This operation is made on the same bucket
-func RenameS3Object(s3Client *s3.S3, bucket, sourceKey, destKey string) error {
+func RenameS3Object(s3Client *s3.S3, srcBucket, srcKey, destBucket, destKey, acl string) error {
 	funcTag := "RenameS3Object"
 
-	// validate the rename
-	if strings.EqualFold(sourceKey, destKey) {
-		return WrapError(fmt.Errorf("validation error"), funcTag, "cannot rename object to the same key")
-	}
-
-	// build the query
-	query := &s3.CopyObjectInput{
-		Bucket:            aws.String(bucket),
-		Key:               aws.String(destKey),
-		CopySource:        aws.String(fmt.Sprintf("%s/%s", bucket, sourceKey)),
-		MetadataDirective: aws.String("REPLACE"),
-	}
-
 	// copy the original object to a new key
-	_, err := s3Client.CopyObject(query)
+	err := CopyS3Object(s3Client, srcBucket, srcKey, destBucket, destKey, acl)
 	if err != nil {
 		return WrapError(err, funcTag, "failed to delete object")
 	}
 
 	// remove the original object from the bucket
-	err = DeleteS3Object(s3Client, bucket, sourceKey)
+	err = DeleteS3Object(s3Client, srcBucket, srcKey)
 	if err != nil {
 		return WrapError(err, funcTag, "failed to delete original object after copying during rename operation")
 	}
@@ -300,7 +309,7 @@ func RenameS3Object(s3Client *s3.S3, bucket, sourceKey, destKey string) error {
 
 // CopyS3Object copies an object in S3to another bucket and returns an error, if any
 // This operation is the cross-bucket
-func CopyS3Object(s3Client *s3.S3, srcBucket, srcKey, destBucket, destKey string) error {
+func CopyS3Object(s3Client *s3.S3, srcBucket, srcKey, destBucket, destKey, acl string) error {
 	funcTag := "RenameS3Object"
 
 	srcFull := JoinS3Path(srcBucket, srcKey)
@@ -311,32 +320,25 @@ func CopyS3Object(s3Client *s3.S3, srcBucket, srcKey, destBucket, destKey string
 		return WrapError(fmt.Errorf("validation error"), funcTag, "cannot rename object to the same key in the same bucket")
 	}
 
+	// default the acl
+	if len(acl) == 0 {
+		acl = "private"
+	}
+
 	// build the query
 	query := &s3.CopyObjectInput{
 		Bucket:            aws.String(destBucket),
 		Key:               aws.String(destKey),
 		CopySource:        aws.String(JoinS3Path(srcBucket, srcKey)),
 		MetadataDirective: aws.String("REPLACE"),
+		ACL:               aws.String(acl),
 	}
 
 	// copy the original object to a new key
 	_, err := s3Client.CopyObject(query)
 	if err != nil {
-		return WrapError(err, funcTag, "failed to delete object")
+		return WrapError(err, funcTag, fmt.Sprintf("failed to delete object with query: %+v", query))
 	}
 
 	return nil
-}
-
-// S3Object is a wrapper for an aws object
-type S3Object struct {
-	Bytes     []byte
-	Base64    string
-	Key       string
-	Extension string
-}
-
-// S3Directory is a wrapper for an aws folder
-type S3Directory struct {
-	Key string
 }

@@ -10,10 +10,12 @@ import (
 
 // ProcessCmdOptions options
 type ProcessCmdOptions struct {
-	S3InKey  string
-	S3OutKey string
-	OutSizes []int
-	Public   bool
+	S3SrcKey     string
+	S3DestKey    string
+	Sizes        []int
+	IsDestPublic bool
+	RebuildAll   bool
+	RebuildNew   bool
 }
 
 // upload command
@@ -47,22 +49,28 @@ func init() {
 	rootCmd.AddCommand(processCmd)
 
 	// this is where the files are pulled from to process
-	processCmd.Flags().StringVar(&processCmdOpts.S3InKey,
-		"s3-in-key", util.EnvVarString("PROCESS_S3_IN_KEY", "originals"),
+	processCmd.Flags().StringVar(&processCmdOpts.S3SrcKey,
+		"s3-src-key", util.EnvVarString("PROCESS_S3_SRC_KEY", "originals"),
 		"(Required) S3 Key or Directory to process")
 
 	// this is where the files are dumped when processing
-	processCmd.Flags().StringVar(&processCmdOpts.S3OutKey,
-		"s3-out-key", util.EnvVarString("PROCESS_S3_OUT_KEY", "processed"),
+	processCmd.Flags().StringVar(&processCmdOpts.S3DestKey,
+		"s3-dest-key", util.EnvVarString("PROCESS_S3_DEST_KEY", "processed"),
 		"(Required) S3 Key or Directory to output processing results")
 
 	// each output size will get its own folder
-	processCmd.Flags().IntSliceVar(&processCmdOpts.OutSizes,
-		"is-dir", util.EnvVarIntSlice("PROCESS_OUT_SIZES", []int{640, 768, 1024}),
+	processCmd.Flags().IntSliceVar(&processCmdOpts.Sizes,
+		"sizes", util.EnvVarIntSlice("PROCESS_SIZES", []int{640, 768, 1024}),
 		"(Optional) Specify the output sizes of the processing")
 
 	// is this file public?
-	processCmd.Flags().BoolVar(&processCmdOpts.Public,
-		"public", util.EnvVarBool("PROCESS_PUBLIC", false),
+	processCmd.Flags().BoolVar(&processCmdOpts.IsDestPublic,
+		"s3-is-public", util.EnvVarBool("PROCESS_IS_DEST_PUBLIC", false),
 		"(Optional) Use this to upload a publicly available file, otherwise its private. Requires a public S3!")
+
+	// rebuild all files?
+	processCmd.Flags().BoolVar(&processCmdOpts.RebuildAll,
+		"rebuild-all", util.EnvVarBool("PROCESS_REBUILD_ALL", false),
+		"(Optional) Remove the processed directory before processing so that all files are re-processed, otherwise only process files that exist in the src which do not exist in the dest")
+
 }

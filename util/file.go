@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -37,11 +38,14 @@ func WalkAllFilesHelper(files *[]*WalkedFile) filepath.WalkFunc {
 		if err != nil {
 			return WrapError(err, funcTag, "walking helper error")
 		} else if !info.Mode().IsDir() {
-			// logrus.Infof("Walker %s", path)
-			*files = append(*files, &WalkedFile{
-				Path:     path,
-				FileInfo: info,
-			})
+			// filter out ".DS_Store" files
+			if strings.EqualFold(info.Name(), ".ds_store") {
+				// logrus.Infof("Walker %s", path)
+				*files = append(*files, &WalkedFile{
+					Path:     path,
+					FileInfo: info,
+				})
+			}
 		}
 		return nil
 	}

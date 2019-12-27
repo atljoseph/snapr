@@ -79,6 +79,6 @@ func init() {
 
 	// is this file public?
 	uploadCmd.Flags().BoolVar(&uploadCmdOpts.Public,
-		"public", util.EnvVarBool("UPLOAD_PUBLIC", false),
+		"s3-is-public", util.EnvVarBool("UPLOAD_S3_IS_PUBLIC", false),
 		"(Optional) Use this to upload a publicly available file, otherwise its private. Requires a public S3!")
 }

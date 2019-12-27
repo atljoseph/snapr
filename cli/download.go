@@ -17,12 +17,14 @@ func DownloadCmdRunE(ropts *RootCmdOptions, opts *DownloadCmdOptions) error {
 	// logrus.Infof(funcTag)
 	var err error
 
+	// not validating the dir here, because you might want to download the entire dir ("")
+
 	// default the out dir if empty
 	if len(opts.OutDir) == 0 {
 		// default to the directory where the binary exists (pwd)
 		opts.OutDir, err = os.Getwd()
 		if err != nil {
-			return util.WrapError(err, funcTag, "failed to get pwd for OutDir")
+			return util.WrapError(err, funcTag, "failed to get pwd for output")
 		}
 	}
 

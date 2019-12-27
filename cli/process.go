@@ -36,7 +36,7 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 	// set the object acl to "private"
 	acl := "private"
 	// unless set to public
-	if processCmdOpts.Public {
+	if opts.IsDestPublic {
 		acl = "public-read"
 	}
 	logrus.Infof("With Access ACL: %s", acl)
@@ -44,21 +44,21 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 	// ------  VALIDATE -----------------------------------
 
 	// validate the in dir
-	if len(opts.S3InKey) == 0 {
-		return util.WrapError(fmt.Errorf("validation error"), funcTag, "must provide an s3 key for input directory")
+	if len(opts.S3SrcKey) == 0 {
+		return util.WrapError(fmt.Errorf("validation error"), funcTag, "must provide a value for `--s3-src-key`")
 	}
 
 	// validate the out dir
-	if len(opts.S3OutKey) == 0 {
-		return util.WrapError(fmt.Errorf("validation error"), funcTag, "must provide an s3 key for output directory")
+	if len(opts.S3DestKey) == 0 {
+		return util.WrapError(fmt.Errorf("validation error"), funcTag, "must provide a value for `--s3-dest-key`")
 	}
 
 	// validate that in and out are not the same
-	if strings.EqualFold(opts.S3InKey, opts.S3OutKey) {
-		return util.WrapError(fmt.Errorf("validation error"), funcTag, fmt.Sprintf("input and output keys cannot be the same: '%s' vs '%s'", opts.S3InKey, opts.S3OutKey))
+	if strings.EqualFold(opts.S3SrcKey, opts.S3DestKey) {
+		return util.WrapError(fmt.Errorf("validation error"), funcTag, fmt.Sprintf("input and output keys cannot be the same: '%s' vs '%s'", opts.S3SrcKey, opts.S3DestKey))
 	}
 
-	logrus.Infof("IN: %s, OUT: %s, SIZES: %d", opts.S3InKey, opts.S3OutKey, opts.OutSizes)
+	logrus.Infof("IN: %s, OUT: %s, SIZES: %d", opts.S3SrcKey, opts.S3DestKey, opts.Sizes)
 
 	// ------  LIST OBJECTS -----------------------------------
 
@@ -70,7 +70,7 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 
 	// list all files recursively
 	// for the directory to process from ("originals")
-	objects, _, err := util.ListS3ObjectsByKey(s3Client, ropts.Bucket, opts.S3InKey, false)
+	objects, _, err := util.ListS3ObjectsByKey(s3Client, ropts.Bucket, opts.S3SrcKey, false)
 	if err != nil {
 		return util.WrapError(err, funcTag, "failed to get s3 object list")
 	}
@@ -79,18 +79,20 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 
 	// ------  CLEANUP OUTPUT DIR -----------------------------------
 
-	// build & fire the cli command
-	cmdArgs := &DeleteCmdOptions{
-		S3Key: opts.S3OutKey,
-		IsDir: true,
-	}
-	// check the error
-	err = DeleteCmdRunE(rootCmdOpts, cmdArgs)
-	if err != nil {
-		return fmt.Errorf("failed running delete command with opts: %+v: %s", cmdArgs, err)
-	}
+	if opts.RebuildAll {
+		// build & fire the cli command
+		cmdArgs := &DeleteCmdOptions{
+			S3Key: opts.S3DestKey,
+			IsDir: true,
+		}
+		// check the error
+		err = DeleteCmdRunE(rootCmdOpts, cmdArgs)
+		if err != nil {
+			return fmt.Errorf("failed running delete command with opts: %+v: %s", cmdArgs, err)
+		}
 
-	logrus.Infof("DELETED: %s", opts.S3OutKey)
+		logrus.Infof("DELETED: %s", opts.S3DestKey)
+	}
 
 	// ------  FILTER -----------------------------------
 
@@ -109,7 +111,7 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 		partials := strings.Split(obj.Key, util.S3Delimiter)
 		for idx := range partials {
 			slice := partials[0:idx]
-			if strings.EqualFold(opts.S3InKey, strings.Join(slice, util.S3Delimiter)) {
+			if strings.EqualFold(opts.S3SrcKey, strings.Join(slice, util.S3Delimiter)) {
 				isMatch = true
 			}
 		}
@@ -132,7 +134,7 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 			// incrment
 			matches++
 			// process all variations
-			efs = append(efs, HandleImageProcessWorker(s3Client, ropts.Bucket, obj.Key, opts.S3InKey, opts.S3OutKey, acl, opts.OutSizes, processed, errors))
+			efs = append(efs, HandleImageProcessWorker(s3Client, ropts.Bucket, obj.Key, opts.S3SrcKey, opts.S3DestKey, acl, opts.Sizes, processed, errors))
 
 		}
 	}
@@ -151,7 +153,7 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 	logrus.Infof("STARTING")
 
 	// files and images
-	for leftovers > 0 {
+	for {
 
 		// index
 		start := counter * maxPer
@@ -160,14 +162,20 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 		if maxPer > leftovers {
 			end = start + leftovers
 		}
+
+		// break if it is time
+		if leftovers <= 0 {
+			break
+		}
+
 		logrus.Infof("Leftovers %d, High Water %d, Errors %d, Done %d, Start %d, End %d", leftovers, len(efs), len(*errors), len(*processed), start, end)
 
 		// reup the err group
 		eg, _ = util.NewErrGroup()
 
 		// upload with worker in errgroup
-		// each variation is an object
-		// each object has a goroutine
+		// each input object has a goroutine
+		// which handles all variations
 		for i, ef := range efs[start:end] {
 			logrus.Infof("Image %d", start+i+1)
 			eg.Go(ef)
@@ -198,6 +206,7 @@ func HandleImageProcessWorker(s3Client *s3.S3, bucket, origKey, inKey, outKey, a
 		inBuf, err := util.DownloadS3Object(s3Client, bucket, origKey)
 		if err != nil {
 			err = util.WrapError(err, funcTag, fmt.Sprintf("failed to download bucket object: %s", inKey))
+			logrus.Warnf(err.Error())
 			*errorAccumulator = append(*errorAccumulator, &err)
 			return err
 		}
@@ -206,6 +215,7 @@ func HandleImageProcessWorker(s3Client *s3.S3, bucket, origKey, inKey, outKey, a
 		img, _, err := image.Decode(bytes.NewReader(inBuf))
 		if err != nil {
 			err = util.WrapError(err, funcTag, fmt.Sprintf("failed to decode bytes: %s", origKey))
+			logrus.Warnf(err.Error())
 			*errorAccumulator = append(*errorAccumulator, &err)
 			return err
 		}
@@ -227,6 +237,7 @@ func HandleImageProcessWorker(s3Client *s3.S3, bucket, origKey, inKey, outKey, a
 			_, err = util.WriteS3Bytes(s3Client, bucket, acl, fullOutKey, outBuf.Bytes())
 			if err != nil {
 				err = util.WrapError(err, funcTag, "failed to send bytes to s3")
+				logrus.Warnf(err.Error())
 				*errorAccumulator = append(*errorAccumulator, &err)
 				return err
 			}

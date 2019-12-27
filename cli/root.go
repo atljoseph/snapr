@@ -10,13 +10,13 @@ import (
 
 // RootCmdOptions are for root flags
 type RootCmdOptions struct {
-	EnvFilePath    string
-	Bucket         string
-	Region         string
-	Token          string
-	Secret         string
-	S3Config       *util.S3Accessor
-	FileCreateMode os.FileMode
+	EnvFilePath string
+	Bucket      string
+	Region      string
+	Token       string
+	Secret      string
+	S3Config    *util.S3Accessor
+	// FileCreateMode os.FileMode
 }
 
 // snap command
@@ -29,7 +29,7 @@ var (
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// initialize the s3 config
 			rootCmdOpts = rootCmdOpts.SetupS3ConfigFromRootArgs()
-			rootCmdOpts.FileCreateMode = 0700
+			// rootCmdOpts.FileCreateMode = 0700
 			// exec this when root cmd is exec-ed
 			logrus.Infof("Please enter a command or use the `--help` flag.")
 			// logrus.Infof(runtime.GOOS)
@@ -89,7 +89,7 @@ func (ropts *RootCmdOptions) SetupS3ConfigFromRootArgs() *RootCmdOptions {
 		Token:  ropts.Token,
 		Secret: ropts.Secret,
 	}
-	// logrus.Infof("S3: %+v", ropts)
+	// logrus.Infof("ROPTS: %+v", ropts)
 	return ropts
 }
 

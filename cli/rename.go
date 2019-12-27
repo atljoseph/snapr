@@ -20,7 +20,7 @@ func RenameCmdRunE(ropts *RootCmdOptions, opts *RenameCmdOptions) error {
 
 	// validate required arg
 	if len(opts.S3SourceKey) == 0 {
-		return util.WrapError(fmt.Errorf("validation error"), funcTag, "option `--s3-source-key` is required")
+		return util.WrapError(fmt.Errorf("validation error"), funcTag, "option `--s3-src-key` is required")
 	}
 
 	// validate required arg
@@ -39,10 +39,19 @@ func RenameCmdRunE(ropts *RootCmdOptions, opts *RenameCmdOptions) error {
 		return util.WrapError(err, funcTag, "failed to get new s3 client")
 	}
 
-	// track operated object keys
-	var operationTracker []*RenameCmdOperationTracker
+	// set the object acl to "private"
+	destAcl := "private"
+	// unless set to public
+	if opts.IsDestPublic {
+		destAcl = "public-read"
+	}
+	logrus.Infof("With DESTINATION Access ACL: %s", destAcl)
 
-	if !opts.IsDir {
+	// track operated object keys
+	var operationTracker *[]*RenameCmdOperationTracker
+	var errorTracker *[]*error
+
+	if !opts.SrcIsDir {
 
 		// files
 		srcObj := util.S3Object{Key: opts.S3SourceKey}
@@ -56,12 +65,12 @@ func RenameCmdRunE(ropts *RootCmdOptions, opts *RenameCmdOptions) error {
 		// logrus.Infof("Object exists: %s", file.Key)
 
 		// rename the object
-		err = util.CopyS3Object(s3Client, ropts.Bucket, srcObj.Key, opts.S3DestBucket, destObj.Key)
+		err = util.CopyS3Object(s3Client, ropts.Bucket, srcObj.Key, opts.S3DestBucket, destObj.Key, destAcl)
 		if err != nil {
 			return util.WrapError(err, funcTag, fmt.Sprintf("failed to rename object: %s", srcObj.Key))
 		}
 
-		operationTracker = append(operationTracker, &RenameCmdOperationTracker{
+		*operationTracker = append(*operationTracker, &RenameCmdOperationTracker{
 			Source: &srcObj,
 			Dest:   &destObj,
 		})
@@ -86,7 +95,7 @@ func RenameCmdRunE(ropts *RootCmdOptions, opts *RenameCmdOptions) error {
 		for _, srcObj := range objects {
 			destObj := &util.S3Object{Key: strings.ReplaceAll(srcObj.Key, opts.S3SourceKey, opts.S3DestKey)}
 			logrus.Infof("KEY: %s ==> %s", srcObj.Key, destObj.Key)
-			eg.Go(RenameObjectWorker(s3Client, ropts.Bucket, srcObj, opts.S3DestBucket, destObj, &operationTracker))
+			eg.Go(RenameObjectWorker(s3Client, ropts.Bucket, srcObj, opts.S3DestBucket, destObj, operationTracker, errorTracker, opts.IsCopyOperation, destAcl))
 		}
 
 		// wait on the errgroup and check for error
@@ -98,24 +107,42 @@ func RenameCmdRunE(ropts *RootCmdOptions, opts *RenameCmdOptions) error {
 		logrus.Infof("Renamed all objects from %s to %s", opts.S3SourceKey, opts.S3DestKey)
 	}
 
-	logrus.Infof("%d objects renamed", len(operationTracker))
+	logrus.Infof("%d objects renamed", len(*operationTracker)+1)
 
 	return nil
 }
 
 // RenameObjectWorker returns signature of `func() error {}` to satisfy a closure
-func RenameObjectWorker(s3Client *s3.S3, srcBucket string, srcObj *util.S3Object, destBucket string, destObj *util.S3Object, tracker *[]*RenameCmdOperationTracker) func() error {
+// TODO: add error tracking *[]*error
+func RenameObjectWorker(s3Client *s3.S3, srcBucket string, srcObj *util.S3Object, destBucket string, destObj *util.S3Object, accumulator *[]*RenameCmdOperationTracker, errorAccumulator *[]*error, isCopyOperation bool, acl string) func() error {
 	funcTag := "DeleteObjectWorker"
+	var err error
 	return func() error {
 
-		// rename the object
-		err := util.CopyS3Object(s3Client, srcBucket, srcObj.Key, destBucket, destObj.Key)
-		if err != nil {
-			return util.WrapError(err, funcTag, fmt.Sprintf("failed to rename object: %s", srcObj.Key))
+		// same or different buckets?
+		differentBuckets := !strings.EqualFold(srcBucket, destBucket)
+
+		// to copy or rename (copy and delete) ?
+		if isCopyOperation || differentBuckets {
+			// copy the object
+			err = util.CopyS3Object(s3Client, srcBucket, srcObj.Key, destBucket, destObj.Key, acl)
+			if err != nil {
+				err = util.WrapError(err, funcTag, fmt.Sprintf("failed to rename object: %s", srcObj.Key))
+				*errorAccumulator = append(*errorAccumulator, &err)
+				return err
+			}
+		} else {
+			// rename the object
+			err = util.RenameS3Object(s3Client, srcBucket, srcObj.Key, destBucket, destObj.Key, acl)
+			if err != nil {
+				err = util.WrapError(err, funcTag, fmt.Sprintf("failed to rename object: %s", srcObj.Key))
+				*errorAccumulator = append(*errorAccumulator, &err)
+				return err
+			}
 		}
 
 		// add to tracker
-		*tracker = append(*tracker, &RenameCmdOperationTracker{
+		*accumulator = append(*accumulator, &RenameCmdOperationTracker{
 			Source: srcObj,
 			Dest:   destObj,
 		})

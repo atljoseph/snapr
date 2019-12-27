@@ -63,7 +63,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 		// ensure is a file
 		if fileInfo.IsDir() {
-			return util.WrapError(fmt.Errorf("validation error"), funcTag, "file cannot be a directory")
+			return util.WrapError(fmt.Errorf("validation error"), funcTag, "`--file` cannot be a directory")
 		}
 
 		// append the walked file struct
@@ -79,14 +79,14 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 			// default to the directory where the binary exists (pwd)
 			opts.InDir, err = os.Getwd()
 			if err != nil {
-				return util.WrapError(err, funcTag, "cannot get pwd for InDir")
+				return util.WrapError(err, funcTag, "cannot get pwd for `--dir")
 			}
 		}
 
 		// get the abs dir path
 		opts.InDir, err = filepath.Abs(opts.InDir)
 		if err != nil {
-			return util.WrapError(err, funcTag, fmt.Sprintf("cannot convert path to absolute dir path: %s", opts.InDir))
+			return util.WrapError(err, funcTag, fmt.Sprintf("cannot convert path for `--dir`: %s", opts.InDir))
 		}
 
 		// stat the path
@@ -181,7 +181,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	// set the object acl to "private"
 	acl := "private"
 	// unless set to public
-	if uploadCmdOpts.Public {
+	if opts.Public {
 		acl = "public-read"
 	}
 	logrus.Infof("With Access ACL: %s", acl)
@@ -199,7 +199,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 	logrus.Infof("UPLOADING")
 
-	for leftovers > 0 {
+	for {
 
 		// index
 		start := counter * maxPer
@@ -208,6 +208,12 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		if maxPer > leftovers {
 			end = start + leftovers
 		}
+
+		// break if it is time
+		if leftovers <= 0 {
+			break
+		}
+
 		logrus.Infof("Leftovers %d, High Water %d, Errors %d, Done %d, Start %d, End %d", leftovers, len(filteredFiles), len(*errors), len(*uploads), start, end)
 
 		// reup the err group
@@ -240,9 +246,9 @@ func HandleUploadFileWithCleanupWorker(s3Client *s3.S3, bucket, key, acl string,
 	return func() error {
 
 		// send to AWS
-		_, err := util.WriteS3File(s3Client, rootCmdOpts.Bucket, acl, key, waffle)
+		_, err := util.WriteS3File(s3Client, bucket, acl, key, waffle)
 		if err != nil {
-			err = util.WrapError(err, funcTag, "failed to send file to s3")
+			err = util.WrapError(err, funcTag, "failed to send file to s3: %s")
 			*errorAccumulator = append(*errorAccumulator, &err)
 			return err
 		}

@@ -61,8 +61,8 @@ func EnvVarIntSlice(envKey string, defaultValue []int) []int {
 	strSlice := strings.Split(strValue, ",")
 
 	// // formats default (weird thing with cobra input slice)
-	// if len(result) == 1 {
-	// 	if len(strings.Trim(result[0], " ")) == 0 {
+	// if len(strSlice) == 1 {
+	// 	if len(strings.Trim(strSlice[0], " ")) == 0 {
 	// 		strSlice = nil
 	// 	}
 	// }
@@ -76,8 +76,8 @@ func EnvVarIntSlice(envKey string, defaultValue []int) []int {
 		convInt, err := strconv.Atoi(s)
 		if err != nil {
 			// warn and break with the error
-			logrus.Warnf("Found unparsable input in int slice: %s", s)
-			break
+			logrus.Warnf("Found unparsable input in int slice: %s", strSlice)
+			continue
 		}
 
 		// append the result

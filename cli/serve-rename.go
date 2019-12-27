@@ -14,6 +14,7 @@ type RenameRequest struct {
 	SrcKey  string `json:"src_key"`
 	DestKey string `json:"dest_key"`
 	IsDir   bool   `json:"is_dir"`
+	Copy    bool   `json:"copy"`
 }
 
 // RenameResponse is sent back to the requester in json format
@@ -64,9 +65,10 @@ func ServeCmdRenameHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 
 		// build & fire the cli command
 		cmdArgs := &RenameCmdOptions{
-			S3SourceKey: body.SrcKey,
-			S3DestKey:   body.DestKey,
-			IsDir:       body.IsDir,
+			S3SourceKey:     body.SrcKey,
+			S3DestKey:       body.DestKey,
+			SrcIsDir:        body.IsDir,
+			IsCopyOperation: body.Copy,
 		}
 		// check the error
 		err = RenameCmdRunE(rootCmdOpts, cmdArgs)

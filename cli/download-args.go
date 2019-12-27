@@ -47,16 +47,16 @@ func init() {
 
 	// this is where the files are written to
 	downloadCmd.Flags().StringVar(&downloadCmdOpts.OutDir,
-		"dir", util.EnvVarString("DOWNLOAD_DIR", ""),
+		"work-dir", util.EnvVarString("DOWNLOAD_WORK_DIR", ""),
 		"(Optional) Download Directory")
 
 	// this is where the files are pulled from
 	downloadCmd.Flags().StringVar(&downloadCmdOpts.S3Key,
 		"s3-key", util.EnvVarString("DOWNLOAD_S3_KEY", ""),
-		"(Required) S3 Key or Directory to delete")
+		"(Required) S3 Key or Directory to download")
 
 	// file override ... optional
 	downloadCmd.Flags().BoolVar(&downloadCmdOpts.IsDir,
-		"is-dir", util.EnvVarBool("DOWNLOAD_IS_DIR", false),
-		"(Optional) Set this option to delete an entire S3 directory")
+		"s3-is-dir", util.EnvVarBool("DOWNLOAD_S3_IS_DIR", false),
+		"(Optional) Set this option to download an entire S3 directory")
 }
