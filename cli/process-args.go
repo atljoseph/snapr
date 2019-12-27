@@ -6,7 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TODO: Download Test AFTER the Upload & Rename Tests
+// TODO: Document this command
+// TODO: Remove orphans flag
+// TODO: Default when rebuild-all not set (only new photos)
+// TODO: Process Test AFTER the Upload & Rename Tests
 
 // ProcessCmdOptions options
 type ProcessCmdOptions struct {

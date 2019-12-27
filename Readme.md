@@ -207,18 +207,18 @@ snapr process --s3-bucket=my.public.bucket --s3-dest-key=processed --s3-is-publi
 
 WORK IN PROGRESS
 
-Used to view files from a public or private S3 Bucket in the browser on your local computer.
+Used to view files from a public or private S3 Bucket in the browser on your local computer, and also to manage files in multiple buckets.
 
 Use it like this:
 ```
-snapr serve --work-dir=/Users/me
 snapr serve --port=8081
-snapr serve --work-dir=/Users/me/Desktop --s3-dir=test
+snapr serve --work-dir=/Users/me/Desktop
 ```
 
 Then, in a browser, go to the address the CLI indicates.
 BE VERY CAREFUL what you click :)
 With great power comes great responsibility!
+Adding more functions soon ... 
 
 These OPTIONAL `.env` vars apply to the `serve` command flags:
 ```
@@ -229,7 +229,7 @@ SERVE_PORT=
 ## TODO
 
 - LOTS of TODOs in the code
-- add image processing command
+- serve - add rotate function
 - Make the tests clean up themselves on the s3?
 - Todo Permissions override for mkdir functionality
 - serve command - view file as text (for text file types)

@@ -79,6 +79,7 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 
 	// ------  CLEANUP OUTPUT DIR -----------------------------------
 
+	// if rebuilding all files, then remove the entire destination directory
 	if opts.RebuildAll {
 		// build & fire the cli command
 		cmdArgs := &DeleteCmdOptions{
