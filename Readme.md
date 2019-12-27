@@ -5,23 +5,33 @@ Snaps a webcam image using `ffmpeg`.
 
 Includes a command that enables you to securely browse a Private or Public S3 Bucket in your browser. 
 
-Works on Linux and Mac computers.
+Everything works on Linux and Mac computers. 
+Everything except `upload` and `webcam` works on Windows. 
 
-## TODO
+## Environment
 
-- add image processing command
-- serve command - add move/rename capability (batch?)
-- serve command - add soft/hard delete capability (batch?)
-- Make the tests clean up themselves on the s3?
-- Todo Permissions override for mkdir functionality
-- serve command - link to download entire folder
-- serve command - view file as text (for text file types)
-- serve command - add upload capability from ui
-- Prod build - no debugging statements with sensitive info, DO NOT allow override of env provided from binary package
-- Dev build - allow override of env provided from binary package
-- Limited Access build - Prod build, plus no serve command?
-- Test and document with PAM and Crontab (exit code 0 for pam)
-- Add Device List Command and tests to list capture devices
+To successfully run this code, you need a file at the project root named `.env`, and yes, it can be blank.
+After building, you will no longer need the `.env` file.
+For the environment variables specified in the `.env` file, after building, they will no longer be overridable at runtime, except by use of another `.env` file. 
+If a variable is not set, then it can be overriden at runtime.
+
+These REQUIRED variables are used for AWS S3 access:
+```
+S3_BUCKET=my.s3.bucket
+S3_REGION=us-east-west
+S3_TOKEN=ABC123
+S3_SECRET=123ABC
+```
+
+For boolean inputs, the following inputs count as true:
+```
+1
+true
+TRUE
+True
+``` 
+
+To use a different file, like `.prod.env`, see the `Build` section (below).
 
 ## Build
 
@@ -44,46 +54,6 @@ To use a custom `.env` file:
 ```
 go build -ldflags "-X main.EnvFilePath=.prod.env" snapr
 ```
-
-## Environment
-
-You need a file at the project root named `.env`, and yes, it can be blank.
-For the environment variables specified in the `.env` file, after building, they will no longer be overridable at runtime. 
-If a variable is not set, then it can be overriden at runtime.
-
-These REQUIRED variables are used for AWS S3 access:
-```
-S3_BUCKET=my.s3.bucket
-S3_REGION=us-east-west
-S3_TOKEN=ABC123
-S3_SECRET=123ABC
-```
-
-For boolean inputs, the following inputs count as true:
-```
-1
-true
-TRUE
-True
-``` 
-
-To use a different file, like `.prod.env`, see the `Build` section (below).
-
-## User Permissions
-
-Can run this as `sudo`, but also as other users.
-
-If a user is not iin the `video` group, then they need to be added:
-```
-sudo adduser <user> video
-```
-
-Also, this can help with regards to storage direcory permissions when potentially multiple users:
-```
-sudo chmod -R 0777 /output/dir
-```
-
-Also helps tp have all your directories set up before hand with proper permissions.
 
 ## Testing
 
@@ -225,3 +195,38 @@ SERVE_S3_DIR=
 SERVE_WORK_DIR=
 SERVE_PORT=
 ```
+
+## TODO
+
+- LOTS of TODOs in the code
+- add image processing command
+- serve command - add move/rename capability (batch?)
+- serve command - add soft/hard delete capability (batch?)
+- Make the tests clean up themselves on the s3?
+- Todo Permissions override for mkdir functionality
+- serve command - link to download entire folder
+- serve command - view file as text (for text file types)
+- serve command - add upload capability from ui
+- Prod build - no debugging statements with sensitive info, DO NOT allow override of env provided from binary package
+- Dev build - allow override of env provided from binary package
+- Limited Access build - Prod build, plus no serve command?
+- Test and document with PAM and Crontab (exit code 0 for pam)
+- Add Device List Command and tests to list capture devices
+- Make Webcam and upload work on windows
+
+
+## User Permissions
+
+Can run this as `sudo`, but also as other users.
+
+If a user is not iin the `video` group, then they need to be added:
+```
+sudo adduser <user> video
+```
+
+Also, this can help with regards to storage direcory permissions when potentially multiple users:
+```
+sudo chmod -R 0777 /output/dir
+```
+
+Also helps tp have all your directories set up before hand with proper permissions.
