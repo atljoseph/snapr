@@ -54,25 +54,11 @@ func ServeCmdDeleteHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 			return
 		}
 
-		// get the request directory, based on the base dir key provided in the CLI opts
-		// default to the s3 Dir provided by cli interface / env vars
-		// if there is a length of string, add a delimiter
-		// add the key from request
-		s3Key := opts.S3Dir
-		if len(opts.S3Dir) > 0 {
-			s3Key += util.S3Delimiter
-		}
-		s3KeyDisplay := body.Key
-
-		// pick up the qp
-		s3Key += body.Key
-		// get the first value in []string from qp slice value
-
-		logrus.Infof("KEY: %s, DISPLAY: %s", s3Key, s3KeyDisplay)
+		logrus.Infof("KEY: %s", body.Key)
 
 		// build & fire the cli command
 		cmdArgs := &DeleteCmdOptions{
-			S3Key: s3Key,
+			S3Key: body.Key,
 			IsDir: body.IsDir,
 		}
 		// check the error
@@ -84,10 +70,12 @@ func ServeCmdDeleteHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 			return
 		}
 
-		// return success with message
+		// success message
 		resp := DeleteResponse{
-			Message: fmt.Sprintf("Object Deleted: %s", s3Key),
+			Message: fmt.Sprintf("Object Deleted: %s", body.Key),
 		}
+
+		// success message
 		err = json.NewEncoder(w).Encode(&resp)
 		if err != nil {
 			err = fmt.Errorf("could not encode response")

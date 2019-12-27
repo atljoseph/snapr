@@ -65,6 +65,7 @@ var serveCmdTmpls = []Template{
 					body: JSON.stringify(data),
 					headers: { 'Content-Type': 'application/json' }
 				}
+				console.log(options)
 				let res
 				try {
 					res = await fetch(url, options)
@@ -90,8 +91,13 @@ var serveCmdTmpls = []Template{
 			{{ template "js-util" }}
 			<script>
 				const msgElemId = 'message'
-				const downloadKey = (key) => {
-					post('download', { key })
+				const downloadKey = (type, key) => {
+					const body = { key }
+					if (type == 'dir') {
+						console.log('downloading directory')
+						body.is_dir = true
+					}
+					post('download', body)
 						.then(res => { message(res.message, msgElemId) })
 						.catch(err => { message(err, msgElemId) })
 				}
@@ -104,7 +110,11 @@ var serveCmdTmpls = []Template{
 					post('delete', body)
 						.then(res => {
 							message(res.message, msgElemId)
-							removeElem(key + '-' + type)
+							var elemId = key + '-' + type
+							if (type == 'dir') {
+								elemId = "folders-files-and-images"
+							}
+							removeElem(elemId)
 						})
 						.catch(err => { message(err, msgElemId) })
 				}
@@ -122,7 +132,7 @@ var serveCmdTmpls = []Template{
 						post('rename', body)
 							.then(res => { 
 								message(res.message, msgElemId) 
-								disableItem(src_key + '-' + type)
+								if (type != 'dir') { disableItem(src_key + '-' + type) }
 							})
 							.catch(err => { message(err, msgElemId) })
 					}
@@ -132,37 +142,50 @@ var serveCmdTmpls = []Template{
 			<div>
 				<span id="message"><span>
 			</div>
-			{{range .Folders}}
-			<div id="{{.DisplayKey}}-dir">
-				<a href="browse?dir={{.Key}}">{{.DisplayKey}}</a>
-				&nbsp;<button onclick="deleteKey('dir', '{{.DisplayKey}}')">Delete</button>
-				&nbsp;<button onclick="renameKey('dir', '{{.DisplayKey}}')">Rename</button>
-				&nbsp;<input id="{{.DisplayKey}}-dir-input" value="{{.DisplayKey}}"></input>
+			<div>
+				<a href="browse?dir=">Home</a>
 			</div>
-			{{end}}
-			{{range .Files}}
-			<div id="{{.DisplayKey}}-file">
-				<p>
-					{{.DisplayKey}}
-					&nbsp;<button onclick="downloadKey('{{.DisplayKey}}')">Download</button>
-					&nbsp;<button onclick="deleteKey('file', '{{.DisplayKey}}')">Delete</button>
-					&nbsp;<button onclick="renameKey('file', '{{.DisplayKey}}')">Rename</button>
-					&nbsp;<input id="{{.DisplayKey}}-file-input" value="{{.DisplayKey}}"></input>
-				</p>
+			<div id="{{.Key}}-dir">
+				<span>Current Directory: {{.Key}}</span>
+				&nbsp;<button onclick="downloadKey('dir', '{{.Key}}')">Download</button>
+				&nbsp;<button onclick="deleteKey('dir', '{{.Key}}')">Delete</button>
+				&nbsp;<button onclick="renameKey('dir', '{{.Key}}')">Rename</button>
+				&nbsp;<input id="{{.Key}}-dir-input" value="{{.Key}}"></input>
 			</div>
-			{{end}}
-			{{range .Images}}
-			<div id="{{.DisplayKey}}-image">
-				<p>
-					{{.DisplayKey}}
-					&nbsp;<button onclick="downloadKey('{{.DisplayKey}}')">Download</button>
-					&nbsp;<button onclick="deleteKey('image', '{{.DisplayKey}}')">Delete</button>
-					&nbsp;<button onclick="renameKey('image', '{{.DisplayKey}}')">Rename</button>
-					&nbsp;<input id="{{.DisplayKey}}-image-input" value="{{.DisplayKey}}"></input>
-				</p>
-				<img src="data:image/jpg;base64,{{.Base64}}">
+			<div id="folders-files-and-images">
+				{{range .Folders}}
+				<div id="{{.Key}}-dir">
+					<a href="browse?dir={{.Key}}">{{.Key}}</a>
+					&nbsp;<button onclick="downloadKey('dir', '{{.Key}}')">Download</button>
+					&nbsp;<button onclick="deleteKey('dir', '{{.Key}}')">Delete</button>
+					&nbsp;<button onclick="renameKey('dir', '{{.Key}}')">Rename</button>
+					&nbsp;<input id="{{.Key}}-dir-input" value="{{.Key}}"></input>
+				</div>
+				{{end}}
+				{{range .Files}}
+				<div id="{{.Key}}-file">
+					<p>
+						{{.Key}}
+						&nbsp;<button onclick="downloadKey('file', '{{.Key}}')">Download</button>
+						&nbsp;<button onclick="deleteKey('file', '{{.Key}}')">Delete</button>
+						&nbsp;<button onclick="renameKey('file', '{{.Key}}')">Rename</button>
+						&nbsp;<input id="{{.Key}}-file-input" value="{{.Key}}"></input>
+					</p>
+				</div>
+				{{end}}
+				{{range .Images}}
+				<div id="{{.Key}}-image">
+					<p>
+						{{.Key}}
+						&nbsp;<button onclick="downloadKey('image', '{{.Key}}')">Download</button>
+						&nbsp;<button onclick="deleteKey('image', '{{.Key}}')">Delete</button>
+						&nbsp;<button onclick="renameKey('image', '{{.Key}}')">Rename</button>
+						&nbsp;<input id="{{.Key}}-image-input" value="{{.Key}}"></input>
+					</p>
+					<img src="data:image/jpg;base64,{{.Base64}}">
+				</div>
+				{{end}}
 			</div>
-			{{end}}
 		{{ template "page-end" }}`,
 	},
 	Template{

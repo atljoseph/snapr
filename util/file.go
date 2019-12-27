@@ -46,3 +46,33 @@ func WalkAllFilesHelper(files *[]*WalkedFile) filepath.WalkFunc {
 		return nil
 	}
 }
+
+// WriteFileBytes writes a new file from bytes
+func WriteFileBytes(absFilePath string, byteSlice []byte) error {
+	funcTag := "WalkAllFilesHelper"
+
+	// ensure dir exists
+	mkdir := filepath.Dir(absFilePath)
+	// logrus.Infof("Ensuring Directory: %s", mkdir)
+	err := os.MkdirAll(mkdir, 0700)
+	// err = os.MkdirAll(mkdir, ropts.FileCreateMode)
+	if err != nil {
+		return WrapError(err, funcTag, fmt.Sprintf("falied to mkdir: %s", mkdir))
+	}
+
+	// Create new file
+	newFile, err := os.Create(absFilePath)
+	if err != nil {
+		return WrapError(err, funcTag, fmt.Sprintf("failed to create new file: %s", absFilePath))
+	}
+	defer newFile.Close()
+
+	// copy the data to the new file
+	_, err = newFile.Write(byteSlice)
+	if err != nil {
+		return WrapError(err, funcTag, fmt.Sprintf("failed to write bytes to file: %s", absFilePath))
+	}
+	// logrus.Infof("COPIED: %d", bytesCopied)
+
+	return nil
+}

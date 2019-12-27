@@ -18,10 +18,78 @@ func EnvVarString(envKey, defaultValue string) string {
 }
 
 // EnvVarStringSlice returns the string input or the default if not set
-func EnvVarStringSlice(envKey, defaultValue string) []string {
-	strValue := EnvVarString(envKey, defaultValue)
+func EnvVarStringSlice(envKey string, defaultValue []string) []string {
+	// get the env value as string
+	// including default if applicable
+	strValue := EnvVarString(envKey, strings.Join(defaultValue, ","))
+
+	// trim all spaces
 	strValue = strings.ReplaceAll(strValue, " ", "")
-	return strings.Split(strValue, ",")
+
+	// split into string slice
+	result := strings.Split(strValue, ",")
+
+	// formats default (weird thing with cobra input slice)
+	if len(result) == 1 {
+		if len(strings.Trim(result[0], " ")) == 0 {
+			result = nil
+		}
+	}
+	return result
+}
+
+// EnvVarIntSlice returns an int slice of a string env variable, or its default
+func EnvVarIntSlice(envKey string, defaultValue []int) []int {
+
+	// convert the default to parsable string
+	strDefault := ""
+	for idx, i := range defaultValue {
+		strDefault += strconv.Itoa(i)
+		if idx < len(defaultValue) {
+			strDefault += ","
+		}
+	}
+
+	// get the env value as string
+	// including default if applicable
+	strValue := EnvVarString(envKey, strDefault)
+
+	// trim all spaces
+	strValue = strings.ReplaceAll(strValue, " ", "")
+
+	// split into string slice
+	strSlice := strings.Split(strValue, ",")
+
+	// // formats default (weird thing with cobra input slice)
+	// if len(result) == 1 {
+	// 	if len(strings.Trim(result[0], " ")) == 0 {
+	// 		strSlice = nil
+	// 	}
+	// }
+
+	// convert output
+	var result []int
+	var err error
+	for _, s := range strSlice {
+
+		// convert to int
+		convInt, err := strconv.Atoi(s)
+		if err != nil {
+			// warn and break with the error
+			logrus.Warnf("Found unparsable input in int slice: %s", s)
+			break
+		}
+
+		// append the result
+		result = append(result, convInt)
+	}
+
+	// revert to the default value if conversion error
+	if err != nil {
+		result = defaultValue
+	}
+
+	return result
 }
 
 // EnvVarInt returns the input as an int, or the default if not set

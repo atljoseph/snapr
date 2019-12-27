@@ -183,7 +183,6 @@ Used to view files from a public or private S3 Bucket in the browser on your loc
 
 Use it like this:
 ```
-snapr serve --s3-dir=cupcake
 snapr serve --work-dir=/Users/me
 snapr serve --port=8081
 snapr serve --work-dir=/Users/me/Desktop --s3-dir=test
@@ -191,7 +190,6 @@ snapr serve --work-dir=/Users/me/Desktop --s3-dir=test
 
 These OPTIONAL `.env` vars apply to the `serve` command flags:
 ```
-SERVE_S3_DIR=
 SERVE_WORK_DIR=
 SERVE_PORT=
 ```
@@ -200,11 +198,8 @@ SERVE_PORT=
 
 - LOTS of TODOs in the code
 - add image processing command
-- serve command - add move/rename capability (batch?)
-- serve command - add soft/hard delete capability (batch?)
 - Make the tests clean up themselves on the s3?
 - Todo Permissions override for mkdir functionality
-- serve command - link to download entire folder
 - serve command - view file as text (for text file types)
 - serve command - add upload capability from ui
 - Prod build - no debugging statements with sensitive info, DO NOT allow override of env provided from binary package
@@ -213,6 +208,7 @@ SERVE_PORT=
 - Test and document with PAM and Crontab (exit code 0 for pam)
 - Add Device List Command and tests to list capture devices
 - Make Webcam and upload work on windows
+- serve command - add soft delete capability (batch?)
 
 
 ## User Permissions

@@ -62,35 +62,10 @@ func ServeCmdRenameHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 			return
 		}
 
-		// get the request directory, based on the base dir key provided in the CLI opts
-		// default to the s3 Dir provided by cli interface / env vars
-		// if there is a length of string, add a delimiter
-		// add the key from request
-		srcKey := opts.S3Dir
-		if len(srcKey) > 0 {
-			srcKey += util.S3Delimiter
-		}
-		srcKey += body.SrcKey
-		// if len(srcKey) > 0 {
-		// 	srcKey += util.S3Delimiter
-		// }
-
-		// same for the dest key
-		destKey := opts.S3Dir
-		if len(destKey) > 0 {
-			destKey += util.S3Delimiter
-		}
-		destKey += body.DestKey
-		// if len(destKey) > 0 {
-		// 	destKey += util.S3Delimiter
-		// }
-
-		logrus.Infof("SRC: %s, DEST: %s", srcKey, destKey)
-
 		// build & fire the cli command
 		cmdArgs := &RenameCmdOptions{
-			S3SourceKey: srcKey,
-			S3DestKey:   destKey,
+			S3SourceKey: body.SrcKey,
+			S3DestKey:   body.DestKey,
 			IsDir:       body.IsDir,
 		}
 		// check the error
@@ -102,10 +77,12 @@ func ServeCmdRenameHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 			return
 		}
 
-		// return success with message
+		// success message
 		resp := RenameResponse{
-			Message: fmt.Sprintf("Object(s) Renamed: %s to %s", srcKey, destKey),
+			Message: fmt.Sprintf("Object(s) Renamed: %s to %s", body.SrcKey, body.DestKey),
 		}
+
+		// success message
 		err = json.NewEncoder(w).Encode(&resp)
 		if err != nil {
 			err = fmt.Errorf("could not encode response")

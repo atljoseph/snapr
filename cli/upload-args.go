@@ -64,7 +64,7 @@ func init() {
 
 	// upload format filter
 	uploadCmd.Flags().StringSliceVar(&uploadCmdOpts.Formats,
-		"formats", util.EnvVarStringSlice("UPLOAD_FORMATS", ""),
+		"formats", util.EnvVarStringSlice("UPLOAD_FORMATS", []string{}),
 		"(Optional) Upload Formats for filtering (comma delimited) - Example: png,jpg")
 
 	// upload file limit

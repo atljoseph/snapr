@@ -119,6 +119,30 @@ func WriteS3Bytes(s3Client *s3.S3, bucket, acl, targetKey string, buffer []byte)
 // S3Delimiter is the folder delimiter (for us) in AWS S3
 var S3Delimiter = "/"
 
+// JoinS3Path is virtually the same as filepath.Join(...), but for S3
+func JoinS3Path(p1, p2 string) string {
+	result := p1
+	if len(result) > 0 && len(p2) > 0 {
+		result += S3Delimiter
+	}
+	result += p2
+	return result
+}
+
+// EnsureS3DirPath ensures that the directory is compatible with aws S3
+// so that it returns the correct object list for directories
+func EnsureS3DirPath(path string) string {
+	result := path
+	if len(result) > 0 {
+		lastCharIsDelimiter := strings.EqualFold(string(result[len(result)-1]), S3Delimiter)
+		// if there is a length of string, add a delimiter
+		if !lastCharIsDelimiter {
+			result += S3Delimiter
+		}
+	}
+	return result
+}
+
 // ListS3ObjectsByKey sends a single file to an AWS S3 bucket
 // objects are "files"
 // commonKeys are "directories"
@@ -242,7 +266,7 @@ func DeleteS3Object(s3Client *s3.S3, bucket, key string) error {
 }
 
 // RenameS3Object renames an object in S3 and returns an error, if any
-// This operation is made on the same bucket, although it could be made between 2 buckets
+// This operation is made on the same bucket
 func RenameS3Object(s3Client *s3.S3, bucket, sourceKey, destKey string) error {
 	funcTag := "RenameS3Object"
 
@@ -274,17 +298,45 @@ func RenameS3Object(s3Client *s3.S3, bucket, sourceKey, destKey string) error {
 	return nil
 }
 
+// CopyS3Object copies an object in S3to another bucket and returns an error, if any
+// This operation is the cross-bucket
+func CopyS3Object(s3Client *s3.S3, srcBucket, srcKey, destBucket, destKey string) error {
+	funcTag := "RenameS3Object"
+
+	srcFull := JoinS3Path(srcBucket, srcKey)
+	destFull := JoinS3Path(destBucket, destKey)
+
+	// validate the rename
+	if strings.EqualFold(srcFull, destFull) {
+		return WrapError(fmt.Errorf("validation error"), funcTag, "cannot rename object to the same key in the same bucket")
+	}
+
+	// build the query
+	query := &s3.CopyObjectInput{
+		Bucket:            aws.String(destBucket),
+		Key:               aws.String(destKey),
+		CopySource:        aws.String(JoinS3Path(srcBucket, srcKey)),
+		MetadataDirective: aws.String("REPLACE"),
+	}
+
+	// copy the original object to a new key
+	_, err := s3Client.CopyObject(query)
+	if err != nil {
+		return WrapError(err, funcTag, "failed to delete object")
+	}
+
+	return nil
+}
+
 // S3Object is a wrapper for an aws object
 type S3Object struct {
-	Bytes      []byte
-	Base64     string
-	Key        string
-	Extension  string
-	DisplayKey string
+	Bytes     []byte
+	Base64    string
+	Key       string
+	Extension string
 }
 
 // S3Directory is a wrapper for an aws folder
 type S3Directory struct {
-	Key        string
-	DisplayKey string
+	Key string
 }

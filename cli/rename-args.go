@@ -10,9 +10,10 @@ import (
 
 // RenameCmdOptions options
 type RenameCmdOptions struct {
-	S3SourceKey string
-	S3DestKey   string
-	IsDir       bool
+	S3SourceKey  string
+	S3DestKey    string
+	S3DestBucket string
+	IsDir        bool
 }
 
 // RenameCmdOperationTracker helps track rename operations
@@ -60,6 +61,11 @@ func init() {
 	renameCmd.Flags().StringVar(&renameCmdOpts.S3DestKey,
 		"s3-dest-key", util.EnvVarString("RENAME_S3_DEST_KEY", ""),
 		"(Required) S3 Key to move `s3-source-key` to")
+
+	// this is where the files are pulled from
+	renameCmd.Flags().StringVar(&renameCmdOpts.S3DestBucket,
+		"s3-dest-bucket", util.EnvVarString("RENAME_S3_DEST_BUCKET", ""),
+		"(Optional) S3 Bucket to move `s3-source-key` to")
 
 	// file override ... optional
 	renameCmd.Flags().BoolVar(&renameCmdOpts.IsDir,

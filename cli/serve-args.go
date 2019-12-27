@@ -9,7 +9,6 @@ import (
 // ServeCmdOptions options
 type ServeCmdOptions struct {
 	WorkDir string
-	S3Dir   string
 	Port    int
 	Host    string
 }
@@ -44,20 +43,13 @@ func init() {
 	// add command to root
 	rootCmd.AddCommand(serveCmd)
 
-	// this is appended to `dir`if set
-	serveCmd.Flags().StringVar(&serveCmdOpts.S3Dir,
-		"s3-dir", util.EnvVarString("SERVE_S3_DIR", ""),
-		"(Optional) Base S3 Directory Key to browse")
-
 	// this is where the files get written to
 	// default to calling user's home directory
-	// TODO: default below
 	serveCmd.Flags().StringVar(&serveCmdOpts.WorkDir,
 		"work-dir", util.EnvVarString("SERVE_WORK_DIR", ""),
 		"(Recommended) This will eventually be the Download and Upload directory")
 
 	// file override ... optional
-	// TODO: default below
 	serveCmd.Flags().IntVar(&serveCmdOpts.Port,
 		"port", util.EnvVarInt("SERVE_PORT", 8080),
 		"(Override) Serve Port")

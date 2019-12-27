@@ -7,7 +7,9 @@ import (
 	"snapr/util"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 // UploadCmdRunE runs the snap command
@@ -26,13 +28,6 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	// this situation can happen in testing, where the cobra args arent eval-ed
 	if opts.UploadLimit < 1 {
 		opts.UploadLimit = 1
-	}
-
-	// formats default (weird thing with cobra input slice)
-	if len(opts.Formats) == 1 {
-		if len(strings.Trim(opts.Formats[0], " ")) == 0 {
-			opts.Formats = nil
-		}
 	}
 
 	// handle the dir and file inputs
@@ -167,10 +162,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	}
 
 	// get the base s3 key, if any
-	baseS3Key := opts.S3Dir
-	if len(opts.S3Dir) > 0 {
-		baseS3Key += util.S3Delimiter
-	}
+	baseS3Key := util.EnsureS3DirPath(opts.S3Dir)
 	logrus.Infof("S3 Base Key: %s", baseS3Key)
 
 	// TODO: add backup capability (later) - Get bucket contents by key recursively and check if same key
@@ -194,35 +186,86 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	}
 	logrus.Infof("With Access ACL: %s", acl)
 
-	// TODO: put these all on separate goroutines with errgroup
+	// ------  UPLOADING -----------------------------------
 
-	// loop to upload the files
-	for _, file := range filteredFiles {
+	// all on separate goroutines with errgroup
+	// open a new go errgroup for a parrallel operation
+	var uploads = &[]*util.WalkedFile{}
+	var errors = &[]*error{}
+	var eg *errgroup.Group
+	counter := 0
+	maxPer := 10
+	leftovers := maxPer
 
-		logrus.Infof("Uploading %+v", file)
+	logrus.Infof("UPLOADING")
 
-		// TODO: Upload command from windows uploads with "D:\some\dir"
+	for leftovers > 0 {
 
-		// send to AWS
-		_, err := util.WriteS3File(s3Client, ropts.Bucket, acl, file.S3Key, file)
+		// index
+		start := counter * maxPer
+		end := start + maxPer
+		leftovers = len(filteredFiles) - len(*errors) - len(*uploads)
+		if maxPer > leftovers {
+			end = start + leftovers
+		}
+		logrus.Infof("Leftovers %d, High Water %d, Errors %d, Done %d, Start %d, End %d", leftovers, len(filteredFiles), len(*errors), len(*uploads), start, end)
+
+		// reup the err group
+		eg, _ = util.NewErrGroup()
+
+		// loop to upload the files
+		for i, file := range filteredFiles[start:end] {
+			logrus.Infof("Worker: %d, Start: %d, End: %d", i+1, start, end)
+			eg.Go(HandleUploadFileWithCleanupWorker(s3Client, ropts.Bucket, file.S3Key, acl, file, uploads, opts.CleanupAfterSuccess, errors))
+		}
+
+		// wait on the errgroup and check for error
+		err = eg.Wait()
 		if err != nil {
-			return util.WrapError(err, funcTag, "failed to send file to s3")
+			return util.WrapError(err, funcTag, "failed to upload processed files in parallel")
 		}
 
-		logrus.Infof("Done w/ key: %s", file.S3Key)
-
-		// after success, cleanup the files
-		if opts.CleanupAfterSuccess {
-
-			// remove the file from the os if desired
-			err = os.Remove(file.Path)
-			if err != nil {
-				return util.WrapError(err, funcTag, "failed to remove local file from disk after upload")
-			}
-
-			logrus.Infof("Cleaned up file: %s", file.Path)
-		}
+		// next batch
+		counter++
 	}
 
+	logrus.Infof("UPLOADED: %d", len(*uploads))
+
 	return nil
+}
+
+// HandleUploadFileWithCleanupWorker handles async upload of files in paarallel
+func HandleUploadFileWithCleanupWorker(s3Client *s3.S3, bucket, key, acl string, waffle *util.WalkedFile, accumulator *[]*util.WalkedFile, cleanup bool, errorAccumulator *[]*error) func() error {
+	funcTag := "HandleUploadFileWithCleanupWorker"
+	return func() error {
+
+		// send to AWS
+		_, err := util.WriteS3File(s3Client, rootCmdOpts.Bucket, acl, key, waffle)
+		if err != nil {
+			err = util.WrapError(err, funcTag, "failed to send file to s3")
+			*errorAccumulator = append(*errorAccumulator, &err)
+			return err
+		}
+
+		logrus.Infof("Uploaded key: %s", waffle.S3Key)
+
+		// after success, cleanup the files
+		if cleanup {
+
+			// remove the file from the os if desired
+			err = os.Remove(waffle.Path)
+			if err != nil {
+				err = util.WrapError(err, funcTag, "failed to remove local file from disk after upload")
+				*errorAccumulator = append(*errorAccumulator, &err)
+				return err
+			}
+
+			logrus.Infof("Cleaned up file: %s", waffle.Path)
+		}
+
+		// append to images slice
+		*accumulator = append(*accumulator, waffle)
+
+		return nil
+	}
 }

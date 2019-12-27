@@ -97,28 +97,3 @@ func DeleteObjectWorker(s3Client *s3.S3, bucket string, object *util.S3Object, t
 		return nil
 	}
 }
-
-// // HandleImageDownloadWorker handles async download and processing of images
-// // closure is needed to retain context
-// func HandleImageDownloadWorker(s3Client *s3.S3, bucket, objectKey string, displayKey string, pageImages *[]*Object) func() error {
-// 	return func() error {
-// 		funcTag := "HandleImageDownloadWorker"
-
-// 		// download the object to byte slice
-// 		objBytes, err := util.DownloadS3Object(s3Client, bucket, objectKey)
-// 		if err != nil {
-// 			return util.WrapError(err, funcTag, "downloading object bucket")
-// 		}
-
-// 		// append to images slice
-// 		*pageImages = append(*pageImages, &Object{
-// 			Bytes:      objBytes,
-// 			Base64:     base64.StdEncoding.EncodeToString(objBytes),
-// 			DisplayKey: displayKey,
-// 			Key:        objectKey,
-// 		})
-
-// 		// logrus.Infof("WORKER: (%d files) %s", len(*pageImages), displayKey)
-// 		return nil
-// 	}
-// }
