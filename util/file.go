@@ -39,7 +39,7 @@ func WalkAllFilesHelper(files *[]*WalkedFile) filepath.WalkFunc {
 			return WrapError(err, funcTag, "walking helper error")
 		} else if !info.Mode().IsDir() {
 			// filter out ".DS_Store" files
-			if strings.EqualFold(info.Name(), ".ds_store") {
+			if !strings.EqualFold(info.Name(), ".ds_store") {
 				// logrus.Infof("Walker %s", path)
 				*files = append(*files, &WalkedFile{
 					Path:     path,

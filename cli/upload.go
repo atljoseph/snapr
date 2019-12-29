@@ -91,6 +91,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		if err != nil {
 			return util.WrapError(err, funcTag, fmt.Sprintf("cannot convert path for `--dir`: %s", opts.InDir))
 		}
+		logrus.Infof("ABS DIR: %s", opts.InDir)
 
 		// stat the path
 		fileInfo, err := os.Stat(opts.InDir)
@@ -172,13 +173,13 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 	// get the keys and determine if they exist
 	for _, file := range filteredFiles {
+		// logrus.Infof("?????: 1 %s 2 %s 3 %s 4 %s", opts.S3Dir, file.S3Key, file.Path, opts.InDir)
 		// get the base s3 dir
 		// first, get the key from the end of the filename
-		file.S3Key = strings.ReplaceAll(file.Path, opts.InDir+util.S3Delimiter, "")
+		file.S3Key = strings.ReplaceAll(file.Path, opts.InDir+"/", "")
 		if len(opts.S3Dir) > 0 {
-			file.S3Key = opts.S3Dir + util.S3Delimiter + file.S3Key
+			file.S3Key = util.JoinS3Path(opts.S3Dir, file.S3Key)
 		}
-		// logrus.Infof("FILE: %+v", file)
 	}
 
 	// set the object acl to "private"
@@ -197,7 +198,7 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 	errors := &[]*error{}
 	var eg *errgroup.Group
 	counter := 0
-	maxPer := 10
+	maxPer := 5
 	leftovers := maxPer
 
 	logrus.Infof("UPLOADING")
@@ -221,10 +222,11 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 		// reup the err group
 		eg, _ = util.NewErrGroup()
+		logrus.Infof("(Batch %d) Start: %d, End: %d", counter+1, start, end)
 
 		// loop to upload the files
 		for i, file := range filteredFiles[start:end] {
-			logrus.Infof("Worker: %d, Start: %d, End: %d", i+1, start, end)
+			logrus.Infof("(File %d) %s", i+1, file.S3Key)
 			eg.Go(HandleUploadFileWithCleanupWorker(s3Client, ropts.Bucket, file.S3Key, acl, file, uploads, opts.CleanupAfterSuccess, errors))
 		}
 
