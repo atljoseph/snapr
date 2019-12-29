@@ -30,6 +30,9 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 		opts.UploadLimit = 1
 	}
 
+	// make sure that it is directory, we add an extra slash
+	opts.S3Dir = util.EnsureS3DirPath(opts.S3Dir)
+
 	// handle the dir and file inputs
 	// and get a list of files based on the inputs
 	var files []*util.WalkedFile
@@ -190,8 +193,8 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 	// all on separate goroutines with errgroup
 	// open a new go errgroup for a parrallel operation
-	var uploads = &[]*util.WalkedFile{}
-	var errors = &[]*error{}
+	uploads := &[]*util.WalkedFile{}
+	errors := &[]*error{}
 	var eg *errgroup.Group
 	counter := 0
 	maxPer := 10

@@ -37,7 +37,7 @@ func DownloadCmdRunE(ropts *RootCmdOptions, opts *DownloadCmdOptions) error {
 	}
 
 	// track operated object keys
-	var operationTracker []*util.S3Object
+	operationTracker := &[]*util.S3Object{}
 
 	if !opts.IsDir {
 
@@ -65,9 +65,12 @@ func DownloadCmdRunE(ropts *RootCmdOptions, opts *DownloadCmdOptions) error {
 		}
 
 		// track
-		operationTracker = append(operationTracker, &object)
+		*operationTracker = append(*operationTracker, &object)
 		logrus.Infof("Downloaded %s to %s", object.Key, absFilePath)
 	} else {
+
+		// ensure ending dir slash for all these
+		opts.S3Key = util.EnsureS3DirPath(opts.S3Key)
 
 		// get all the objects in the bucket
 		objects, _, err := util.ListS3ObjectsByKey(s3Client, ropts.Bucket, opts.S3Key, false)
@@ -84,7 +87,7 @@ func DownloadCmdRunE(ropts *RootCmdOptions, opts *DownloadCmdOptions) error {
 			absFilePath := filepath.Join(opts.OutDir, object.Key)
 
 			// logrus.Infof("KEY: %s", object.Key)
-			eg.Go(DownloadObjectWorker(s3Client, ropts.Bucket, object, absFilePath, &operationTracker))
+			eg.Go(DownloadObjectWorker(s3Client, ropts.Bucket, object, absFilePath, operationTracker))
 		}
 
 		// wait on the errgroup and check for error
@@ -96,7 +99,7 @@ func DownloadCmdRunE(ropts *RootCmdOptions, opts *DownloadCmdOptions) error {
 		logrus.Infof("Downloaded all objects from %s", opts.S3Key)
 	}
 
-	logrus.Infof("%d objects downloaded", len(operationTracker))
+	logrus.Infof("%d objects downloaded", len(*operationTracker))
 
 	return nil
 }

@@ -74,6 +74,11 @@ func init() {
 	// rebuild all files?
 	processCmd.Flags().BoolVar(&processCmdOpts.RebuildAll,
 		"rebuild-all", util.EnvVarBool("PROCESS_REBUILD_ALL", false),
-		"(Optional) Remove the processed directory before processing so that all files are re-processed, otherwise only process files that exist in the src which do not exist in the dest")
+		"(Optional) Remove the processed directory before processing so that all files are re-processed")
+
+	// rebuild only new files?
+	processCmd.Flags().BoolVar(&processCmdOpts.RebuildNew,
+		"rebuild-new", util.EnvVarBool("PROCESS_REBUILD_NEW", false),
+		"(Optional) Process files that exist in the src which do not exist in the dest")
 
 }

@@ -82,6 +82,16 @@ go test -run=3
 
 The `serve` command is not currently tested.
 
+## Global Flags
+
+The following may be overridden via command line ofr `any command`:
+```
+--s3-bucket=abc
+--s3-region=bca
+--s3-token=xyz
+--s3-secret=yzx
+```
+
 ## Snap Command
 
 To `snap` a webcam or screenshot photo:
@@ -198,9 +208,15 @@ RENAME_IS_COPY_OPERATION=
 
 # TODO: Doc process command
 
+Rebuild all assets:
 ```
-snapr process --rebuild-all --s3-bucket=my.public.bucket --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024
-snapr process --s3-bucket=my.public.bucket --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024
+snapr process --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024
+```
+
+Rebuild new assets (based on scanning of the output dirs):
+```
+snapr process --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024
+snapr process --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024 --rebuild-new 
 ```
 
 ## Serve Command

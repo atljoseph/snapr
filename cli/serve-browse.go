@@ -63,7 +63,8 @@ func ServeCmdBrowseHandler(ropts *RootCmdOptions, opts *ServeCmdOptions) func(w 
 
 		// build the page's images
 		p := &BrowsePage{
-			Key: s3Key,
+			Key:    s3Key,
+			Images: []*util.S3Object{},
 		}
 
 		// get the object list

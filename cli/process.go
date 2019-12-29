@@ -9,20 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/disintegration/imaging"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/disintegration/imaging"
 	"github.com/sirupsen/logrus"
 )
-
-// ProcessedImage ties together all we need
-// in order to upload to a bucket
-type ProcessedImage struct {
-	Bytes []byte
-	Key   string
-	Size  int
-}
 
 // ProcessCmdRunE runs the download command
 // it is exported for testing
@@ -40,6 +32,22 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 		acl = "public-read"
 	}
 	logrus.Infof("With Access ACL: %s", acl)
+
+	// default to RebuildNew if neither is set
+	if !opts.RebuildAll && !opts.RebuildNew {
+		opts.RebuildAll = false
+		opts.RebuildNew = true
+	}
+
+	// default to RebuildNew if both are set
+	if opts.RebuildAll && opts.RebuildNew {
+		opts.RebuildAll = false
+		opts.RebuildNew = true
+	}
+
+	// ensure ending dir slash for all these
+	opts.S3SrcKey = util.EnsureS3DirPath(opts.S3SrcKey)
+	opts.S3DestKey = util.EnsureS3DirPath(opts.S3DestKey)
 
 	// ------  VALIDATE -----------------------------------
 
@@ -68,16 +76,18 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 		return util.WrapError(err, funcTag, "failed to get new s3 client")
 	}
 
-	// list all files recursively
+	// list all SOURCE files recursively
 	// for the directory to process from ("originals")
-	objects, _, err := util.ListS3ObjectsByKey(s3Client, ropts.Bucket, opts.S3SrcKey, false)
+	srcObjects, _, err := util.ListS3ObjectsByKey(s3Client, ropts.Bucket, opts.S3SrcKey, false)
 	if err != nil {
-		return util.WrapError(err, funcTag, "failed to get s3 object list")
+		return util.WrapError(err, funcTag, "failed to get src s3 object list")
 	}
 
-	logrus.Infof("SEARCH RESULTS: %d", len(objects))
+	logrus.Infof("SOURCE OBJECTS: %d", len(srcObjects))
 
-	// ------  CLEANUP OUTPUT DIR -----------------------------------
+	// ------  CLEANUP OUTPUT DIR AND GET LIST TO REBUILD -----------------------------------
+
+	objectsToProcess := &[]*util.S3Object{}
 
 	// if rebuilding all files, then remove the entire destination directory
 	if opts.RebuildAll {
@@ -93,17 +103,132 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 		}
 
 		logrus.Infof("DELETED: %s", opts.S3DestKey)
+
+		// set all objects in the path to be processed
+		objectsToProcess = &srcObjects
+	} else {
+		// list all DEST files recursively
+		// for the directory to process to ("processed")
+		destObjects, _, err := util.ListS3ObjectsByKey(s3Client, ropts.Bucket, opts.S3DestKey, false)
+		if err != nil {
+			return util.WrapError(err, funcTag, "failed to get s3 dest object list")
+		}
+
+		// filter objects to process
+		// only process new files
+		// based on the processed output, what do we expect to see in the originals dir?
+		var expects []string
+		for _, dobj := range destObjects {
+
+			// strip the base dest key
+			destPath := strings.Replace(dobj.Key, util.EnsureS3DirPath(opts.S3DestKey), "", 1)
+
+			for _, size := range opts.Sizes {
+
+				// get the size string
+				sizeStr := strconv.Itoa(size)
+
+				// if starts with the specific size prefix
+				if strings.Index(destPath, sizeStr) == 0 {
+					// strip the size, too
+					destPathSize := strings.Replace(destPath, util.EnsureS3DirPath(sizeStr), "", 1)
+
+					// if expects does not already contain, append
+					contained := false
+					for _, e := range expects {
+						if strings.EqualFold(e, destPathSize) {
+							contained = true
+						}
+					}
+
+					if !contained {
+						expects = append(expects, destPathSize)
+					}
+				}
+
+			}
+		}
+
+		logrus.Infof("EXPECTING %d IN %s", len(expects), opts.S3SrcKey)
+
+		// look through every original and find what is there that is not in the other place
+		for _, sobj := range srcObjects {
+
+			// string the base original path from the src
+			path := strings.Replace(sobj.Key, util.EnsureS3DirPath(opts.S3SrcKey), "", 1)
+
+			// look through the expects and find a match
+			found := false
+			for _, expect := range expects {
+				if strings.EqualFold(expect, path) {
+					// logrus.Infof("CHECK: '%s'", expect)
+					found = true
+				}
+			}
+
+			// process if not found
+			if !found {
+				logrus.Infof("NEW: '%s'", path)
+				*objectsToProcess = append(*objectsToProcess, sobj)
+			}
+		}
+
+		// detect orphans to remove
+		// // filter objects to process
+		// // only process new files
+		// // what do we expect to see, based on what is in the bucket?
+		// var expects []string
+		// for _, sobj := range srcObjects {
+
+		// 	// string the base original path from the src
+		// 	path := strings.Replace(sobj.Key, util.EnsureS3DirPath(opts.S3SrcKey), "", 1)
+
+		// 	// and for every size
+		// 	for _, size := range opts.Sizes {
+
+		// 		// strip the size, too
+		// 		pathSize := util.JoinS3Path(strconv.Itoa(size), path)
+
+		// 		// we expect to see these files
+		// 		// pathSizeDest := util.JoinS3Path(opts.S3DestKey, pathSize)
+
+		// 		expects = append(expects, pathSize)
+		// 	}
+		// }
+
+		// // look through every dobj
+		// for _, dobj := range destObjects {
+
+		// 	// strip the base dest key
+		// 	destPath := strings.Replace(dobj.Key, util.EnsureS3DirPath(opts.S3DestKey), "", 1)
+
+		// 	// look through the expects and find a match
+		// 	found := true
+		// 	for _, expect := range expects {
+		// 		if !strings.EqualFold(expect, destPath) {
+		// 			found = false
+		// 		}
+		// 	}
+
+		// 	// process if not found
+		// 	if !found {
+		// 		logrus.Infof("FOUND IN PROCESSING DEST: '%s'", destPath)
+		// 		// objectsToProcess = append(objectsToProcess, sobj)
+		// 	}
+		// }
 	}
 
-	// ------  FILTER -----------------------------------
+	logrus.Infof("TO PROCESS: %d", len(*objectsToProcess))
+
+	// ------  FILTER IMAGES AND BUILD ERRGROUP FUNCS -----------------------------------
 
 	// errgroupFuncs
 	var efs []func() error
-	var processed = &[]*string{}
-	var errors = &[]*error{}
+	processed := &[]*string{}
+	errors := &[]*error{}
 	matches := 0
 
-	for _, obj := range objects {
+	for _, obj := range *objectsToProcess {
 
 		// if partial path matches
 		// include it as a match
@@ -112,7 +237,9 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 		partials := strings.Split(obj.Key, util.S3Delimiter)
 		for idx := range partials {
 			slice := partials[0:idx]
-			if strings.EqualFold(opts.S3SrcKey, strings.Join(slice, util.S3Delimiter)) {
+			dirToMatch := util.EnsureS3DirPath(strings.Join(slice, util.S3Delimiter))
+			// logrus.Infof("%s ?? %s", opts.S3SrcKey, util.EnsureS3DirPath(strings.Join(slice, util.S3Delimiter)))
+			if strings.EqualFold(opts.S3SrcKey, dirToMatch) {
 				isMatch = true
 			}
 		}
@@ -136,13 +263,10 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 			matches++
 			// process all variations
 			efs = append(efs, HandleImageProcessWorker(s3Client, ropts.Bucket, obj.Key, opts.S3SrcKey, opts.S3DestKey, acl, opts.Sizes, processed, errors))
-
 		}
 	}
 
-	// ------  DOWNLOAD ORIGINALS -----------------------------------
-	// ------  PROCESS OUTPUTS -----------------------------------
-	// ------  UPLOAD OUTPUTS -----------------------------------
+	// ------ FIR ERRGROUP FUNCS IN BATCHES -----------------------------------
 
 	// open a new go errgroup for a parrallel operation
 	// batched parallelism
@@ -151,7 +275,7 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 	maxPer := 5
 	leftovers := maxPer
 
-	logrus.Infof("STARTING")
+	logrus.Infof("LOOPING to process files in parallel groups")
 
 	// files and images
 	for {
@@ -166,10 +290,12 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 
 		// break if it is time
 		if leftovers <= 0 {
+			logrus.Infof("Nothing left to process")
 			break
 		}
 
-		logrus.Infof("Leftovers %d, High Water %d, Errors %d, Done %d, Start %d, End %d", leftovers, len(efs), len(*errors), len(*processed), start, end)
+		logrus.Infof("(Batch %d) Start %d, End %d, Total %d, Done %d, Leftovers %d, Errors %d",
+			counter+1, start, end, len(efs), len(*processed), leftovers, len(*errors))
 
 		// reup the err group
 		eg, _ = util.NewErrGroup()
@@ -177,8 +303,7 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 		// upload with worker in errgroup
 		// each input object has a goroutine
 		// which handles all variations
-		for i, ef := range efs[start:end] {
-			logrus.Infof("Image %d", start+i+1)
+		for _, ef := range efs[start:end] {
 			eg.Go(ef)
 		}
 
@@ -197,16 +322,31 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 	return nil
 }
 
+// ProcessedImage ties together all we need
+// in order to upload to a bucket
+type ProcessedImage struct {
+	Bytes  []byte
+	Buffer *bytes.Buffer
+	Key    string
+	Size   int
+}
+
 // HandleImageProcessWorker handles async processing of images
-func HandleImageProcessWorker(s3Client *s3.S3, bucket, origKey, inKey, outKey, acl string, sizes []int, accumulator *[]*string, errorAccumulator *[]*error) func() error {
+func HandleImageProcessWorker(
+	s3Client *s3.S3,
+	bucket, origFullKey, inDirKey, outDirKey, acl string,
+	sizes []int,
+	accumulator *[]*string,
+	errorAccumulator *[]*error,
+) func() error {
 	funcTag := "HandleImageProcessWorker"
 	return func() error {
-		logrus.Infof("Starting: (%d) %s", sizes, origKey)
+		logrus.Infof("WORK: (%d) %s", sizes, origFullKey)
 
-		// logrus.Infof("WORKER: %s", key)
-		inBuf, err := util.DownloadS3Object(s3Client, bucket, origKey)
+		// ------  DOWNLOAD ORIGINAL -----------------------------------
+		inBuf, err := util.DownloadS3Object(s3Client, bucket, origFullKey)
 		if err != nil {
-			err = util.WrapError(err, funcTag, fmt.Sprintf("failed to download bucket object: %s", inKey))
+			err = util.WrapError(err, funcTag, fmt.Sprintf("failed to download bucket object: %s", inDirKey))
 			logrus.Warnf(err.Error())
 			*errorAccumulator = append(*errorAccumulator, &err)
 			return err
@@ -215,39 +355,57 @@ func HandleImageProcessWorker(s3Client *s3.S3, bucket, origKey, inKey, outKey, a
 		// convert bytes to image.Image
 		img, _, err := image.Decode(bytes.NewReader(inBuf))
 		if err != nil {
-			err = util.WrapError(err, funcTag, fmt.Sprintf("failed to decode bytes: %s", origKey))
+			err = util.WrapError(err, funcTag, fmt.Sprintf("failed to decode bytes: %s", origFullKey))
 			logrus.Warnf(err.Error())
 			*errorAccumulator = append(*errorAccumulator, &err)
 			return err
 		}
 
+		// ------  PROCESS & UPLOAD OUTPUTS -----------------------------------
+
+		// build the output objects
+		var outputImages []*ProcessedImage
 		for _, size := range sizes {
 
+			// key / directory for sizes
+			// replace the inDirKey with the size, then tack on the outDirKey
+			sizeOutKey := strings.ReplaceAll(origFullKey, util.EnsureS3DirPath(inDirKey), util.EnsureS3DirPath(strconv.Itoa(size)))
+			fullOutKey := util.JoinS3Path(outDirKey, sizeOutKey)
+
+			// append to list of output images
+			outputImages = append(outputImages, &ProcessedImage{
+				Size: size,
+				Key:  fullOutKey,
+			})
+		}
+
+		// process and upload
+		for _, oi := range outputImages {
+
 			// resize
-			imgResized := imaging.Resize(img, size, 0, imaging.Lanczos)
+			imgResized := imaging.Resize(img, oi.Size, 0, imaging.Lanczos)
 
 			// convert back to bytes
-			outBuf := new(bytes.Buffer)
-			err = jpeg.Encode(outBuf, imgResized, nil)
-
-			// key / directory for sizes
-			sizeOutKey := strings.ReplaceAll(origKey, inKey, strconv.Itoa(size))
-			fullOutKey := util.JoinS3Path(outKey, sizeOutKey)
+			oi.Buffer = new(bytes.Buffer)
+			err = jpeg.Encode(oi.Buffer, imgResized, nil)
+			oi.Bytes = oi.Buffer.Bytes()
 
 			// send to AWS
-			_, err = util.WriteS3Bytes(s3Client, bucket, acl, fullOutKey, outBuf.Bytes())
+			_, err = util.WriteS3Bytes(s3Client, bucket, acl, oi.Key, oi.Bytes)
 			if err != nil {
 				err = util.WrapError(err, funcTag, "failed to send bytes to s3")
 				logrus.Warnf(err.Error())
 				*errorAccumulator = append(*errorAccumulator, &err)
 				return err
 			}
+
+			logrus.Infof("RESIZED: %s", oi.Key)
 		}
 
 		// append to images slice
-		*accumulator = append(*accumulator, &origKey)
+		*accumulator = append(*accumulator, &origFullKey)
 
-		logrus.Infof("WORKER DONE: %s", origKey)
+		logrus.Infof("DONE: (%d) %s", sizes, origFullKey)
 		return nil
 	}
 }

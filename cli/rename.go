@@ -48,8 +48,8 @@ func RenameCmdRunE(ropts *RootCmdOptions, opts *RenameCmdOptions) error {
 	logrus.Infof("With DESTINATION Access ACL: %s", destAcl)
 
 	// track operated object keys
-	var operationTracker *[]*RenameCmdOperationTracker
-	var errorTracker *[]*error
+	operationTracker := &[]*RenameCmdOperationTracker{}
+	errorTracker := &[]*error{}
 
 	if !opts.SrcIsDir {
 
@@ -77,7 +77,8 @@ func RenameCmdRunE(ropts *RootCmdOptions, opts *RenameCmdOptions) error {
 		logrus.Infof("Renamed: %s to %s", srcObj.Key, destObj.Key)
 	} else {
 
-		// make sure that if destKey is directory, we add an extra slash
+		// make sure that it is directory, we add an extra slash
+		opts.S3SourceKey = util.EnsureS3DirPath(opts.S3SourceKey)
 		opts.S3DestKey = util.EnsureS3DirPath(opts.S3DestKey)
 
 		logrus.Infof("SRC: %s, DEST: %s", opts.S3SourceKey, opts.S3DestKey)
@@ -107,7 +108,7 @@ func RenameCmdRunE(ropts *RootCmdOptions, opts *RenameCmdOptions) error {
 		logrus.Infof("Renamed all objects from %s to %s", opts.S3SourceKey, opts.S3DestKey)
 	}
 
-	logrus.Infof("%d objects renamed", len(*operationTracker)+1)
+	logrus.Infof("%d objects renamed", len(*operationTracker))
 
 	return nil
 }

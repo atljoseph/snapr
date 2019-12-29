@@ -27,7 +27,7 @@ func DeleteCmdRunE(ropts *RootCmdOptions, opts *DeleteCmdOptions) error {
 	}
 
 	// track operated object keys
-	var operationTracker []*util.S3Object
+	operationTracker := &[]*util.S3Object{}
 
 	if !opts.IsDir {
 
@@ -47,9 +47,12 @@ func DeleteCmdRunE(ropts *RootCmdOptions, opts *DeleteCmdOptions) error {
 			return util.WrapError(err, funcTag, fmt.Sprintf("failed to delete object: %s", file.Key))
 		}
 
-		operationTracker = append(operationTracker, &file)
+		*operationTracker = append(*operationTracker, &file)
 		logrus.Infof("Deleted: %s", file.Key)
 	} else {
+
+		// ensure ending dir slash for all these
+		opts.S3Key = util.EnsureS3DirPath(opts.S3Key)
 
 		// get all the objects in the bucket
 		objects, _, err := util.ListS3ObjectsByKey(s3Client, ropts.Bucket, opts.S3Key, false)
@@ -62,7 +65,7 @@ func DeleteCmdRunE(ropts *RootCmdOptions, opts *DeleteCmdOptions) error {
 
 		for _, object := range objects {
 			// logrus.Infof("KEY: %s", object.Key)
-			eg.Go(DeleteObjectWorker(s3Client, ropts.Bucket, object, &operationTracker))
+			eg.Go(DeleteObjectWorker(s3Client, ropts.Bucket, object, operationTracker))
 		}
 
 		// wait on the errgroup and check for error
@@ -74,7 +77,7 @@ func DeleteCmdRunE(ropts *RootCmdOptions, opts *DeleteCmdOptions) error {
 		logrus.Infof("Deleted all objects from %s", opts.S3Key)
 	}
 
-	logrus.Infof("%d objects deleted", len(operationTracker))
+	logrus.Infof("%d objects deleted", len(*operationTracker))
 
 	return nil
 }

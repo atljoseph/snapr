@@ -221,7 +221,7 @@ func ListS3ObjectsByKey(s3Client *s3.S3, bucket, key string, useDelimiter bool) 
 			})
 		}
 
-		logrus.Infof("Fetched %d results", len(response.Contents))
+		// logrus.Infof("Fetched %d results from %s/%s", len(response.Contents), bucket, key)
 
 		// set the continuation token and handle break on truncation
 		query.ContinuationToken = response.NextContinuationToken
