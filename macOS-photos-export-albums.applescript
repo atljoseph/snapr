@@ -19,7 +19,7 @@ tell application "Photos"
 	
 	-- COMMENT THIS OUT TO DO ALL ALBUMS THAT START WITH "web-"
 	-- prompt user for albums
-	-- set albList to choose from list albList with prompt "Select some albums" with multiple selections allowed
+	set albList to choose from list albList with prompt "Select some albums" with multiple selections allowed
 	
 	-- if valid (not cancelled, or empty list)
 	if albList is not false then
@@ -48,12 +48,14 @@ tell application "Photos"
 						
 						-- create a folder named (the name of this album) in dest
 						my mkdir(albFolder)
+						log "done with mkdir: " & albName
 						
 						-- get media items
 						set mediaItems to get media items of album fullAlbName
 						
 						-- export the files
 						-- WILL ALWAYS OUTPUT AS ".JPG"
+						log "started export for " & albName
 						export mediaItems to (albFolder as alias) without using originals
 						log "done exporting album: " & albFolder
 						

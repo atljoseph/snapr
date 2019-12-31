@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"path/filepath"
 	"snapr/util"
 	"strconv"
 	"strings"
@@ -168,54 +169,24 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 
 			// process if not found
 			if !found {
-				logrus.Infof("NEW: '%s'", path)
-				*objectsToProcess = append(*objectsToProcess, sobj)
+
+				// is this an image?
+				// good compromise for image format determination
+				isImage := false
+				for _, format := range util.SupportedCaptureFormats() {
+					if strings.EqualFold(format, strings.ReplaceAll(filepath.Ext(path), ".", "")) {
+						isImage = true
+						break
+					}
+				}
+
+				// if image, add it to list for processing
+				if isImage {
+					logrus.Infof("NEW: '%s'", path)
+					*objectsToProcess = append(*objectsToProcess, sobj)
+				}
 			}
 		}
-
-		// detect orphans to remove
-		// // filter objects to process
-		// // only process new files
-		// // what do we expect to see, based on what is in the bucket?
-		// var expects []string
-		// for _, sobj := range srcObjects {
-
-		// 	// string the base original path from the src
-		// 	path := strings.Replace(sobj.Key, util.EnsureS3DirPath(opts.S3SrcKey), "", 1)
-
-		// 	// and for every size
-		// 	for _, size := range opts.Sizes {
-
-		// 		// strip the size, too
-		// 		pathSize := util.JoinS3Path(strconv.Itoa(size), path)
-
-		// 		// we expect to see these files
-		// 		// pathSizeDest := util.JoinS3Path(opts.S3DestKey, pathSize)
-
-		// 		expects = append(expects, pathSize)
-		// 	}
-		// }
-
-		// // look through every dobj
-		// for _, dobj := range destObjects {
-
-		// 	// strip the base dest key
-		// 	destPath := strings.Replace(dobj.Key, util.EnsureS3DirPath(opts.S3DestKey), "", 1)
-
-		// 	// look through the expects and find a match
-		// 	found := true
-		// 	for _, expect := range expects {
-		// 		if !strings.EqualFold(expect, destPath) {
-		// 			found = false
-		// 		}
-		// 	}
-
-		// 	// process if not found
-		// 	if !found {
-		// 		logrus.Infof("FOUND IN PROCESSING DEST: '%s'", destPath)
-		// 		// objectsToProcess = append(objectsToProcess, sobj)
-		// 	}
-		// }
 	}
 
 	logrus.Infof("TO PROCESS: %d", len(*objectsToProcess))
