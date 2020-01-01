@@ -91,7 +91,7 @@ func GrepCmdRunE(ropts *RootCmdOptions, opts *GrepCmdOptions) error {
 	// batched parallelism
 	var eg *errgroup.Group
 	counter := 0
-	maxPer := 5
+	maxPer := 10
 	leftovers := maxPer
 
 	logrus.Infof("LOOPING to process files in parallel groups")
