@@ -23,7 +23,7 @@ var (
 		Short: "Snapr is a snapper turtle.",
 		Long:  `Do you like turtles?`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			deleteCmdOpts = deleteCmdOpts.TransformPositionalArgs(args)
+			downloadCmdOpts = downloadCmdOpts.TransformPositionalArgs(args)
 			rootCmdOpts = rootCmdOpts.SetupS3ConfigFromRootArgs()
 			return DownloadCmdRunE(rootCmdOpts, downloadCmdOpts)
 		},

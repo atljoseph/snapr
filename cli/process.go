@@ -17,7 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ProcessCmdRunE runs the download command
+// ProcessCmdRunE runs the process command
 // it is exported for testing
 func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 	funcTag := "process"

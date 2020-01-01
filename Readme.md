@@ -1,9 +1,11 @@
 
 # Snapr CLI
 
-Snaps a webcam image using `ffmpeg`.
+I built this tool to help manage and process photo albums for my website, and for other things ...
 
-Includes a command that enables you to securely browse a Private or Public S3 Bucket in your browser. 
+Extras:
+- Includes a command that enables you to securely browse a Private or Public S3 Bucket in your browser. 
+- Capable of snapping a webcam image using `ffmpeg`, and / or a screenshot.
 
 Everything works on Linux and Mac computers. 
 Everything except `upload` and `webcam` works on Windows. 
@@ -12,7 +14,7 @@ Everything except `upload` and `webcam` works on Windows.
 
 To successfully run this code, you need a file at the project root named `.env`, and yes, it can be blank.
 After building, you will no longer need the `.env` file.
-For the environment variables specified in the `.env` file, after building, they will no longer be overridable at runtime, except by use of another `.env` file. 
+For the environment variables specified in the `.env` file, after building, they will no longer be overridable at runtime, except by use of another `.env` file or by explicitly available command line flag(s). 
 If a variable is not set, then it can be overriden at runtime.
 
 These REQUIRED variables are used for AWS S3 access:
