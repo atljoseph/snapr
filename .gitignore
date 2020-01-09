@@ -5,6 +5,7 @@ snapr.exe
 *.json
 *.png
 *.svg
-flow.md
+processing.md
 *.scpt
 exported
+*_log*

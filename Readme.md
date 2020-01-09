@@ -208,7 +208,7 @@ RENAME_SRC_IS_DIR=
 RENAME_IS_COPY_OPERATION=
 ```
 
-# TODO: Doc process command
+## Process command
 
 Rebuild all assets:
 ```
@@ -244,24 +244,7 @@ SERVE_WORK_DIR=
 SERVE_PORT=
 ```
 
-## TODO
-
-- LOTS of TODOs in the code
-- serve - add rotate function
-- Make the tests clean up themselves on the s3?
-- Todo Permissions override for mkdir functionality
-- serve command - view file as text (for text file types)
-- serve command - add upload capability from ui
-- Prod build - no debugging statements with sensitive info, DO NOT allow override of env provided from binary package
-- Dev build - allow override of env provided from binary package
-- Limited Access build - Prod build, plus no serve command?
-- Test and document with PAM and Crontab (exit code 0 for pam)
-- Add Device List Command and tests to list capture devices
-- Make Webcam and upload work on windows
-- serve command - add soft delete capability (batch?)
-
-
-## User Permissions
+# User Permissions
 
 Can run this as `sudo`, but also as other users.
 

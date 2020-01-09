@@ -10,10 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/sync/errgroup"
-
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/disintegration/imaging"
+	"github.com/pieterclaerhout/go-waitgroup"
 	"github.com/sirupsen/logrus"
 )
 
@@ -191,14 +189,12 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 
 	logrus.Infof("TO PROCESS: %d", len(*objectsToProcess))
 
-	// ------  FILTER IMAGES AND BUILD ERRGROUP FUNCS -----------------------------------
+	// ------  FILTER FOR IMAGES -----------------------------------
 
-	// errgroupFuncs
-	var efs []func() error
-	processed := &[]*string{}
-	errors := &[]*error{}
-	matches := 0
+	// waitGroupFuncs
+	imagesToProcess := []*util.S3Object{}
 
+	// filter to images only
 	for _, obj := range *objectsToProcess {
 
 		// if partial path matches
@@ -230,63 +226,100 @@ func ProcessCmdRunE(ropts *RootCmdOptions, opts *ProcessCmdOptions) error {
 		// if match, put in image slice
 		// else file slice
 		if isImage && isMatch {
-			// incrment
-			matches++
-			// process all variations
-			efs = append(efs, HandleImageProcessWorker(s3Client, ropts.Bucket, obj.Key, opts.S3SrcKey, opts.S3DestKey, acl, opts.Sizes, processed, errors))
+			imagesToProcess = append(imagesToProcess, obj)
 		}
 	}
 
-	// ------ FIR ERRGROUP FUNCS IN BATCHES -----------------------------------
+	// ------ FIRE WAITGROUP -----------------------------------
 
-	// open a new go errgroup for a parrallel operation
-	// batched parallelism
-	var eg *errgroup.Group
-	counter := 0
-	maxPer := 5
-	leftovers := maxPer
+	// open a new wait group with a maximum number of concurrent workers
+	wg := waitgroup.NewWaitGroup(5)
 
-	logrus.Infof("LOOPING to process files in parallel groups")
+	// track processed and errors
+	processed := &[]*string{}
+	errors := &[]*error{}
 
-	// files and images
-	for {
+	// loop through all objects and spawn goroutines to wait for
+	for _, img := range imagesToProcess {
 
-		// index
-		start := counter * maxPer
-		end := start + maxPer
-		leftovers = len(efs) - len(*errors) - len(*processed)
-		if maxPer > leftovers {
-			end = start + leftovers
-		}
+		// block adding until the next worker has finished
+		wg.BlockAdd()
 
-		// break if it is time
-		if leftovers <= 0 {
-			logrus.Infof("Nothing left to process")
-			break
-		}
+		// on a separate goroutine, do something asyncronous
+		// download, process, upload
+		go func(origFullKey string, accumulator *[]*string, errorAccumulator *[]*error) {
+			funcTag := "ProcessImageWorker"
+			defer wg.Done()
 
-		logrus.Infof("(Batch %d) Start %d, End %d, Total %d, Done %d, Leftovers %d, Errors %d",
-			counter+1, start, end, len(efs), len(*processed), leftovers, len(*errors))
+			logrus.Infof("WORK: (%d) %s", opts.Sizes, origFullKey)
 
-		// reup the err group
-		eg, _ = util.NewErrGroup()
+			// ------  DOWNLOAD ORIGINAL -----------------------------------
+			inBuf, err := util.DownloadS3Object(s3Client, ropts.Bucket, origFullKey)
+			if err != nil {
+				err = util.WrapError(err, funcTag, fmt.Sprintf("failed to download bucket object: %s", opts.S3SrcKey))
+				logrus.Warnf(err.Error())
+				*errorAccumulator = append(*errorAccumulator, &err)
+			}
 
-		// upload with worker in errgroup
-		// each input object has a goroutine
-		// which handles all variations
-		for _, ef := range efs[start:end] {
-			eg.Go(ef)
-		}
+			// convert bytes to image.Image
+			img, _, err := image.Decode(bytes.NewReader(inBuf))
+			if err != nil {
+				err = util.WrapError(err, funcTag, fmt.Sprintf("failed to decode bytes: %s", origFullKey))
+				logrus.Warnf(err.Error())
+				*errorAccumulator = append(*errorAccumulator, &err)
+			}
 
-		// wait on the errgroup and check for error
-		err = eg.Wait()
-		if err != nil {
-			return util.WrapError(err, funcTag, "failed to download files in parallel")
-		}
+			// ------  PROCESS & UPLOAD OUTPUTS -----------------------------------
 
-		// next batch
-		counter++
+			// build the output objects
+			var outputImages []*ProcessedImage
+			for _, size := range opts.Sizes {
+
+				// key / directory for sizes
+				// replace the inDirKey with the size, then tack on the outDirKey
+				sizeOutKey := strings.ReplaceAll(origFullKey, util.EnsureS3DirPath(opts.S3SrcKey), util.EnsureS3DirPath(strconv.Itoa(size)))
+				fullOutKey := util.JoinS3Path(opts.S3DestKey, sizeOutKey)
+
+				// append to list of output images
+				outputImages = append(outputImages, &ProcessedImage{
+					Size: size,
+					Key:  fullOutKey,
+				})
+			}
+
+			// process and upload
+			for _, oi := range outputImages {
+
+				// resize
+				imgResized := imaging.Resize(img, oi.Size, 0, imaging.Lanczos)
+
+				// convert back to bytes
+				oi.Buffer = new(bytes.Buffer)
+				err = jpeg.Encode(oi.Buffer, imgResized, nil)
+				oi.Bytes = oi.Buffer.Bytes()
+
+				// send to AWS
+				_, err = util.WriteS3Bytes(s3Client, ropts.Bucket, acl, oi.Key, oi.Bytes)
+				if err != nil {
+					err = util.WrapError(err, funcTag, "failed to send bytes to s3")
+					logrus.Warnf(err.Error())
+					*errorAccumulator = append(*errorAccumulator, &err)
+				}
+
+				logrus.Infof("RESIZED: %s", oi.Key)
+			}
+
+			// append to images slice
+			*accumulator = append(*accumulator, &origFullKey)
+
+			logrus.Infof("DONE: (%d) %s", opts.Sizes, origFullKey)
+
+			// we need these injected here
+		}(img.Key, processed, errors)
 	}
+
+	// wait on everything to complete
+	wg.Wait()
 
 	logrus.Infof("PROCESSED: %d", len(*processed))
 
@@ -300,83 +333,4 @@ type ProcessedImage struct {
 	Buffer *bytes.Buffer
 	Key    string
 	Size   int
-}
-
-// HandleImageProcessWorker handles async processing of images
-func HandleImageProcessWorker(
-	s3Client *s3.S3,
-	bucket, origFullKey, inDirKey, outDirKey, acl string,
-	sizes []int,
-	accumulator *[]*string,
-	errorAccumulator *[]*error,
-) func() error {
-	funcTag := "HandleImageProcessWorker"
-	return func() error {
-		logrus.Infof("WORK: (%d) %s", sizes, origFullKey)
-
-		// ------  DOWNLOAD ORIGINAL -----------------------------------
-		inBuf, err := util.DownloadS3Object(s3Client, bucket, origFullKey)
-		if err != nil {
-			err = util.WrapError(err, funcTag, fmt.Sprintf("failed to download bucket object: %s", inDirKey))
-			logrus.Warnf(err.Error())
-			*errorAccumulator = append(*errorAccumulator, &err)
-			return err
-		}
-
-		// convert bytes to image.Image
-		img, _, err := image.Decode(bytes.NewReader(inBuf))
-		if err != nil {
-			err = util.WrapError(err, funcTag, fmt.Sprintf("failed to decode bytes: %s", origFullKey))
-			logrus.Warnf(err.Error())
-			*errorAccumulator = append(*errorAccumulator, &err)
-			return err
-		}
-
-		// ------  PROCESS & UPLOAD OUTPUTS -----------------------------------
-
-		// build the output objects
-		var outputImages []*ProcessedImage
-		for _, size := range sizes {
-
-			// key / directory for sizes
-			// replace the inDirKey with the size, then tack on the outDirKey
-			sizeOutKey := strings.ReplaceAll(origFullKey, util.EnsureS3DirPath(inDirKey), util.EnsureS3DirPath(strconv.Itoa(size)))
-			fullOutKey := util.JoinS3Path(outDirKey, sizeOutKey)
-
-			// append to list of output images
-			outputImages = append(outputImages, &ProcessedImage{
-				Size: size,
-				Key:  fullOutKey,
-			})
-		}
-
-		// process and upload
-		for _, oi := range outputImages {
-
-			// resize
-			imgResized := imaging.Resize(img, oi.Size, 0, imaging.Lanczos)
-
-			// convert back to bytes
-			oi.Buffer = new(bytes.Buffer)
-			err = jpeg.Encode(oi.Buffer, imgResized, nil)
-			oi.Bytes = oi.Buffer.Bytes()
-
-			// send to AWS
-			_, err = util.WriteS3Bytes(s3Client, bucket, acl, oi.Key, oi.Bytes)
-			if err != nil {
-				err = util.WrapError(err, funcTag, "failed to send bytes to s3")
-				logrus.Warnf(err.Error())
-				*errorAccumulator = append(*errorAccumulator, &err)
-				return err
-			}
-
-			logrus.Infof("RESIZED: %s", oi.Key)
-		}
-
-		// append to images slice
-		*accumulator = append(*accumulator, &origFullKey)
-
-		logrus.Infof("DONE: (%d) %s", sizes, origFullKey)
-		return nil
-	}
 }

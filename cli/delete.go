@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"snapr/util"
 
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/pieterclaerhout/go-waitgroup"
 	"github.com/sirupsen/logrus"
 )
 
@@ -60,19 +60,44 @@ func DeleteCmdRunE(ropts *RootCmdOptions, opts *DeleteCmdOptions) error {
 			return util.WrapError(err, funcTag, fmt.Sprintf("failed to get a list bucket objects for key: %s", opts.S3Key))
 		}
 
-		// open a new go errgroup
-		eg, _ := util.NewErrGroup()
+		// open a new wait group with a maximum number of concurrent workers
+		wg := waitgroup.NewWaitGroup(100)
 
+		// accumulate errors while awaiting
+		errorTracker := &[]error{}
+
+		// loop through all objects and spawn goroutines to wait for
 		for _, object := range objects {
+
+			// block adding until the next worker has finished
+			wg.BlockAdd()
+
 			// logrus.Infof("KEY: %s", object.Key)
-			eg.Go(DeleteObjectWorker(s3Client, ropts.Bucket, object, operationTracker))
+
+			// on a separate goroutine, do something asyncronous
+			// delete, accumulate
+			go func(object *util.S3Object, tracker *[]*util.S3Object, etracker *[]error) {
+				funcTag := "DeleteObjectWorker"
+				defer wg.Done()
+
+				// delete the object from storage permanently
+				err := util.DeleteS3Object(s3Client, ropts.Bucket, object.Key)
+				if err != nil {
+					// log error, if any, and accumulate it
+					err = util.WrapError(err, funcTag, fmt.Sprintf("failed to delete object: %s", object.Key))
+					logrus.Warnf(err.Error())
+					*etracker = append(*etracker, err)
+				}
+
+				// add to tracker
+				*tracker = append(*tracker, object)
+
+				// we need these injected here
+			}(object, operationTracker, errorTracker)
 		}
 
-		// wait on the errgroup and check for error
-		err = eg.Wait()
-		if err != nil {
-			return util.WrapError(err, funcTag, "failed to delete s3 objects in errgroup")
-		}
+		// wait on everything to complete
+		wg.Wait()
 
 		logrus.Infof("Deleted all objects from %s", opts.S3Key)
 	}
@@ -80,23 +105,4 @@ func DeleteCmdRunE(ropts *RootCmdOptions, opts *DeleteCmdOptions) error {
 	logrus.Infof("%d objects deleted", len(*operationTracker))
 
 	return nil
-}
-
-// DeleteObjectWorker returns signature of `func() error {}` to satisfy a closure
-func DeleteObjectWorker(s3Client *s3.S3, bucket string, object *util.S3Object, tracker *[]*util.S3Object) func() error {
-	funcTag := "DeleteObjectWorker"
-	return func() error {
-
-		// delete the object from storage permanently
-		err := util.DeleteS3Object(s3Client, bucket, object.Key)
-		if err != nil {
-			return util.WrapError(err, funcTag, fmt.Sprintf("failed to delete object: %s", object.Key))
-		}
-
-		// add to tracker
-		*tracker = append(*tracker, object)
-
-		// bail
-		return nil
-	}
 }

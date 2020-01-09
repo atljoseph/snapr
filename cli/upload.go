@@ -7,9 +7,8 @@ import (
 	"snapr/util"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/pieterclaerhout/go-waitgroup"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // UploadCmdRunE runs the snap command
@@ -192,91 +191,55 @@ func UploadCmdRunE(ropts *RootCmdOptions, opts *UploadCmdOptions) error {
 
 	// ------  UPLOADING -----------------------------------
 
-	// all on separate goroutines with errgroup
-	// open a new go errgroup for a parrallel operation
-	uploads := &[]*util.WalkedFile{}
-	errors := &[]*error{}
-	var eg *errgroup.Group
-	counter := 0
-	maxPer := 5
-	leftovers := maxPer
+	// open a new wait group with a maximum number of concurrent workers
+	wg := waitgroup.NewWaitGroup(1)
 
-	logrus.Infof("UPLOADING")
+	// track what is going on
+	uploadTracker := &[]*util.WalkedFile{}
+	errorTracker := &[]error{}
 
-	for {
+	// loop through all objects and spawn goroutines to wait for
+	for _, waffle := range filteredFiles {
 
-		// index
-		start := counter * maxPer
-		end := start + maxPer
-		leftovers = len(filteredFiles) - len(*errors) - len(*uploads)
-		if maxPer > leftovers {
-			end = start + leftovers
-		}
+		// block adding until the next worker has finished
+		wg.BlockAdd()
 
-		// break if it is time
-		if leftovers <= 0 {
-			break
-		}
+		go func(waffle *util.WalkedFile, accumulator *[]*util.WalkedFile, errorAccumulator *[]error) {
+			funcTag := "HandleUploadFileWithCleanupWorker"
+			defer wg.Done()
 
-		logrus.Infof("Leftovers %d, High Water %d, Errors %d, Done %d, Start %d, End %d", leftovers, len(filteredFiles), len(*errors), len(*uploads), start, end)
-
-		// reup the err group
-		eg, _ = util.NewErrGroup()
-		logrus.Infof("(Batch %d) Start: %d, End: %d", counter+1, start, end)
-
-		// loop to upload the files
-		for i, file := range filteredFiles[start:end] {
-			logrus.Infof("(File %d) %s", i+1, file.S3Key)
-			eg.Go(HandleUploadFileWithCleanupWorker(s3Client, ropts.Bucket, file.S3Key, acl, file, uploads, opts.CleanupAfterSuccess, errors))
-		}
-
-		// wait on the errgroup and check for error
-		err = eg.Wait()
-		if err != nil {
-			return util.WrapError(err, funcTag, "failed to upload processed files in parallel")
-		}
-
-		// next batch
-		counter++
-	}
-
-	logrus.Infof("UPLOADED: %d", len(*uploads))
-
-	return nil
-}
-
-// HandleUploadFileWithCleanupWorker handles async upload of files in paarallel
-func HandleUploadFileWithCleanupWorker(s3Client *s3.S3, bucket, key, acl string, waffle *util.WalkedFile, accumulator *[]*util.WalkedFile, cleanup bool, errorAccumulator *[]*error) func() error {
-	funcTag := "HandleUploadFileWithCleanupWorker"
-	return func() error {
-
-		// send to AWS
-		_, err := util.WriteS3File(s3Client, bucket, acl, key, waffle)
-		if err != nil {
-			err = util.WrapError(err, funcTag, "failed to send file to s3: %s")
-			*errorAccumulator = append(*errorAccumulator, &err)
-			return err
-		}
-
-		logrus.Infof("Uploaded key: %s", waffle.S3Key)
-
-		// after success, cleanup the files
-		if cleanup {
-
-			// remove the file from the os if desired
-			err = os.Remove(waffle.Path)
+			// send to AWS
+			_, err := util.WriteS3File(s3Client, ropts.Bucket, acl, waffle.S3Key, waffle)
 			if err != nil {
-				err = util.WrapError(err, funcTag, "failed to remove local file from disk after upload")
-				*errorAccumulator = append(*errorAccumulator, &err)
-				return err
+				err = util.WrapError(err, funcTag, "failed to send file to s3: %s")
+				*errorAccumulator = append(*errorAccumulator, err)
 			}
 
-			logrus.Infof("Cleaned up file: %s", waffle.Path)
-		}
+			logrus.Infof("Uploaded key: %s", waffle.S3Key)
 
-		// append to images slice
-		*accumulator = append(*accumulator, waffle)
+			// after success, cleanup the files
+			if opts.CleanupAfterSuccess {
 
-		return nil
+				// remove the file from the os if desired
+				err = os.Remove(waffle.Path)
+				if err != nil {
+					err = util.WrapError(err, funcTag, "failed to remove local file from disk after upload")
+					*errorAccumulator = append(*errorAccumulator, err)
+				}
+
+				logrus.Infof("Cleaned up file: %s", waffle.Path)
+			}
+
+			// append to images slice
+			*accumulator = append(*accumulator, waffle)
+
+		}(waffle, uploadTracker, errorTracker)
 	}
+
+	// wait on everything to complete
+	wg.Wait()
+
+	logrus.Infof("UPLOADED: %d", len(*uploadTracker))
+
+	return nil
 }

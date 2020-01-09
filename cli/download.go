@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"snapr/util"
 
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/pieterclaerhout/go-waitgroup"
 	"github.com/sirupsen/logrus"
 )
 
@@ -78,23 +78,54 @@ func DownloadCmdRunE(ropts *RootCmdOptions, opts *DownloadCmdOptions) error {
 			return util.WrapError(err, funcTag, fmt.Sprintf("failed to get a list bucket objects for key: %s", opts.S3Key))
 		}
 
-		// open a new go errgroup
-		eg, _ := util.NewErrGroup()
+		// open a new wait group with a maximum number of concurrent workers
+		wg := waitgroup.NewWaitGroup(50)
 
+		// accumulate errors while awaiting
+		errorTracker := &[]error{}
+
+		// loop through all objects and spawn goroutines to wait for
 		for _, object := range objects {
+
+			// block adding until the next worker has finished
+			wg.BlockAdd()
 
 			// file
 			absFilePath := filepath.Join(opts.OutDir, object.Key)
 
 			// logrus.Infof("KEY: %s", object.Key)
-			eg.Go(DownloadObjectWorker(s3Client, ropts.Bucket, object, absFilePath, operationTracker))
+
+			// on a separate goroutine, do something asyncronous
+			// download, write, accumulate
+			go func(object *util.S3Object, absFilePath string, tracker *[]*util.S3Object, eTracker *[]error) {
+				funcTag := "DownloadObjectWorker"
+				defer wg.Done()
+
+				// delete the object from storage permanently
+				byteSlice, err := util.DownloadS3Object(s3Client, ropts.Bucket, object.Key)
+				if err != nil {
+					err = util.WrapError(err, funcTag, fmt.Sprintf("failed to download object: %s", object.Key))
+					logrus.Warnf(err.Error())
+					*eTracker = append(*eTracker, err)
+				}
+
+				// write the file
+				err = util.WriteFileBytes(absFilePath, byteSlice)
+				if err != nil {
+					err = util.WrapError(err, funcTag, fmt.Sprintf("failed to write file: %s", absFilePath))
+					logrus.Warnf(err.Error())
+					*eTracker = append(*eTracker, err)
+				}
+
+				// add to tracker
+				*tracker = append(*tracker, object)
+
+				// we need these
+			}(object, absFilePath, operationTracker, errorTracker)
 		}
 
-		// wait on the errgroup and check for error
-		err = eg.Wait()
-		if err != nil {
-			return util.WrapError(err, funcTag, "failed to download s3 objects in errgroup")
-		}
+		// wait on everything to complete
+		wg.Wait()
 
 		logrus.Infof("Downloaded all objects from %s", opts.S3Key)
 	}
@@ -102,29 +133,4 @@ func DownloadCmdRunE(ropts *RootCmdOptions, opts *DownloadCmdOptions) error {
 	logrus.Infof("%d objects downloaded", len(*operationTracker))
 
 	return nil
-}
-
-// DownloadObjectWorker returns signature of `func() error {}` to satisfy a closure
-func DownloadObjectWorker(s3Client *s3.S3, bucket string, object *util.S3Object, absFilePath string, tracker *[]*util.S3Object) func() error {
-	funcTag := "DownloadObjectWorker"
-	return func() error {
-
-		// delete the object from storage permanently
-		byteSlice, err := util.DownloadS3Object(s3Client, bucket, object.Key)
-		if err != nil {
-			return util.WrapError(err, funcTag, fmt.Sprintf("failed to delete object: %s", object.Key))
-		}
-
-		// write the file
-		err = util.WriteFileBytes(absFilePath, byteSlice)
-		if err != nil {
-			return util.WrapError(err, funcTag, fmt.Sprintf("failed to write file: %s", absFilePath))
-		}
-
-		// add to tracker
-		*tracker = append(*tracker, object)
-
-		// bail
-		return nil
-	}
 }

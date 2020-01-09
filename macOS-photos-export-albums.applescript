@@ -78,13 +78,19 @@ tell application "Photos"
 				try
 					repeat with im in mediaItems
 						
-						-- export command ALWAYS exports as JPG for some reason
-						set newFileName to my renameOutput(albFolder, name of im, filename of im, "jpg")
-						
-						--add line to text file
-						-- tell application "TextEdit" to make new paragraph at after last character of text of trackerFile with data "This is the newcomer sentence."
-						set written to my write_to_file(trackerFile, albName & "/" & newFileName & "
+						try
+							-- export command ALWAYS exports as JPG for some reason
+							set newFileName to my renameOutput(albFolder, name of im, filename of im, "jpg")
+							
+							--add line to text file
+							-- tell application "TextEdit" to make new paragraph at after last character of text of trackerFile with data "This is the newcomer sentence."
+							set written to my write_to_file(trackerFile, albName & "/" & newFileName & "
 ", 1)
+						on error
+							-- add a line with the original name of the file instead
+							set written to my write_to_file(trackerFile, albName & "/" & (filename of im) & "
+", 1)
+						end try
 						
 					end repeat
 					log "done renaming outputs"

@@ -15,6 +15,7 @@ require (
 	github.com/karrick/godirwalk v1.13.4 // indirect
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lxn/win v0.0.0-20191128105842-2da648fda5b4 // indirect
+	github.com/pieterclaerhout/go-waitgroup v1.0.6
 	github.com/rogpeppe/go-internal v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
