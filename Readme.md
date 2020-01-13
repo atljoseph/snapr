@@ -17,13 +17,7 @@ After building, you will no longer need the `.env` file.
 For the environment variables specified in the `.env` file, after building, they will no longer be overridable at runtime, except by use of another `.env` file or by explicitly available command line flag(s). 
 If a variable is not set, then it can be overriden at runtime.
 
-These REQUIRED variables are used for AWS S3 access:
-```
-S3_BUCKET=my.s3.bucket
-S3_REGION=us-east-west
-S3_TOKEN=ABC123
-S3_SECRET=123ABC
-```
+See `default.env` for an example env config file, and the required env variable names.
 
 For boolean inputs, the following inputs count as true:
 ```
@@ -40,21 +34,15 @@ To use a different file, like `.prod.env`, see the `Build` section (below).
 Upon building, the environment is compiled into the binary.
 After building, you will no longer need the `.env` file.
 
-For your OS:
+You will need the `pkger` cli to embed files in the binary:
 ```
-go build snapr
-```
-
-For specific OS:
-```
-GOOS=linux go build snapr
-GOOS=darwin go build snapr
-GOOS=windows go build snapr (`snap` command not supported ... yet)
+go get github.com/markbates/pkger/cmd/pkger
+pkger -h
 ```
 
-To use a custom `.env` file:
+Run this file to build all binaries in the bin folder:
 ```
-go build -ldflags "-X main.EnvFilePath=.prod.env" snapr
+sh build-all-platforms.sh 
 ```
 
 ## Testing
@@ -86,7 +74,7 @@ The `serve` command is not currently tested.
 
 ## Global Flags
 
-The following may be overridden via command line ofr `any command`:
+The following may be overridden via command line for `any command`:
 ```
 --s3-bucket=abc
 --s3-region=bca
@@ -116,20 +104,7 @@ snapr snap --file test.jpg --camera --screen --upload --cleanup
 
 Please feel free to combine options.
 
-These OPTIONAL `.env` vars apply to the `snap` command flags:
-```
-SNAP_SCREENSHOT=
-SNAP_CAMERA=
-SNAP_DEVICE=
-SNAP_DIR_EXTRA=
-SNAP_DIR=
-SNAP_FILE=
-SNAP_FILE_FORMAT=
-SNAP_FILE_USERS=
-SNAP_UPLOAD_AFTER_SUCCESS=
-SNAP_CLEANUP_AFTER_UPLOAD=
-```
-
+Review the code to discover environment variables related to this command.
 
 ## Download Command
 
@@ -139,12 +114,7 @@ snapr download --s3-key=path/to/origs --s3-is-dir
 snapr download --s3-key=path/to/origs/original.ext --work-dir /home/my/desktop
 ```
 
-These OPTIONAL `.env` vars apply to the `rename` command flags:
-```
-DOWNLOAD_WORK_DIR=
-DOWNLOAD_S3_KEY=
-DOWNLOAD_S3_IS_DIR=
-```
+Review the code to discover environment variables related to this command.
 
 ## Upload Command
 
@@ -163,16 +133,7 @@ If `--formats` is not specified, then all files are uploaded.
 
 If `--s3-is-public` is not specified, then all files are `private`.
 
-These OPTIONAL `.env` vars apply to the `upload` command flags:
-```
-UPLOAD_DIR=
-UPLOAD_FILE=
-UPLOAD_CLEANUP_AFTER_SUCCESS=
-UPLOAD_FORMATS=
-UPLOAD_LIMIT=
-UPLOAD_S3_DIR=
-UPLOAD_S3_IS_PUBLIC=
-```
+Review the code to discover environment variables related to this command.
 
 ## Delete Command
 
@@ -182,11 +143,7 @@ snapr delete --s3-key=path/to/object.ext
 snapr delete --s3-key=path/to/dir --is3-s-dir
 ```
 
-These OPTIONAL `.env` vars apply to the `delete` command flags:
-```
-DELETE_S3_KEY=
-DELETE_S3_IS_DIR=
-```
+Review the code to discover environment variables related to this command.
 
 ## Rename / Copy Command
 
@@ -199,14 +156,7 @@ snapr rename --s3-src-key=path/to/orig --src-is-dir --s3-dest-key=path/to/dest -
 snapr rename --copy --s3-src-key=originals --s3-dest-bucket=my.public.bucket --s3-dest-key=originals --s3-dest-is-public --s3-src-is-dir
 ```
 
-These OPTIONAL `.env` vars apply to the `rename` command flags:
-```
-RENAME_S3_SRC_KEY=
-RENAME_S3_DEST_KEY=
-RENAME_S3_DEST_BUCKET=
-RENAME_SRC_IS_DIR=
-RENAME_IS_COPY_OPERATION=
-```
+Review the code to discover environment variables related to this command.
 
 ## Process command
 
@@ -220,6 +170,8 @@ Rebuild new assets (based on scanning of the output dirs):
 snapr process --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024
 snapr process --s3-dest-key=processed --s3-is-public --s3-src-key=originals --sizes=640,728,1024 --rebuild-new 
 ```
+
+Review the code to discover environment variables related to this command.
 
 ## Serve Command
 
@@ -238,11 +190,7 @@ BE VERY CAREFUL what you click :)
 With great power comes great responsibility!
 Adding more functions soon ... 
 
-These OPTIONAL `.env` vars apply to the `serve` command flags:
-```
-SERVE_WORK_DIR=
-SERVE_PORT=
-```
+Review the code to discover environment variables related to this command.
 
 # User Permissions
 

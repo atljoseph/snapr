@@ -9,3 +9,4 @@ processing.md
 *.scpt
 exported
 *_log*
+bin/*

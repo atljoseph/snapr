@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -8,9 +9,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var envPrefix = "SNAPR"
+
+// osGetEnvRawValPrefixed gets the env var string value for a prefixed env var
+func osGetEnvRawValPrefixed(envKey string) string {
+	key := fmt.Sprintf("%s_%s", envPrefix, envKey)
+	return os.Getenv(key)
+}
+
 // EnvVarString returns the string input or the default if not set
 func EnvVarString(envKey, defaultValue string) string {
-	envValue := os.Getenv(envKey)
+	envValue := osGetEnvRawValPrefixed(envKey)
 	if len(envValue) == 0 {
 		envValue = defaultValue
 	}
@@ -97,7 +106,7 @@ func EnvVarInt(envKey string, defaultValue int) int {
 	// start by defaulting to the default
 	intValue := defaultValue
 	// get the env string value
-	strValue := os.Getenv(envKey)
+	strValue := osGetEnvRawValPrefixed(envKey)
 	// if set
 	if len(strValue) > 0 {
 		// attempt to convert to int

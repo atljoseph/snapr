@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"snapr/util"
 
 	"github.com/sirupsen/logrus"
@@ -10,12 +9,11 @@ import (
 
 // RootCmdOptions are for root flags
 type RootCmdOptions struct {
-	EnvFilePath string
-	Bucket      string
-	Region      string
-	Token       string
-	Secret      string
-	S3Config    *util.S3Accessor
+	Bucket   string
+	Region   string
+	Token    string
+	Secret   string
+	S3Config *util.S3Accessor
 	// FileCreateMode os.FileMode
 }
 
@@ -94,12 +92,6 @@ func (ropts *RootCmdOptions) SetupS3ConfigFromRootArgs() *RootCmdOptions {
 }
 
 // Execute starts the cli
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		// warn for visibility
-		logrus.Warnf(err.Error())
-		// exit with status 0 for PAM
-		// would normally use code 1
-		os.Exit(0)
-	}
+func Execute() error {
+	return rootCmd.Execute()
 }

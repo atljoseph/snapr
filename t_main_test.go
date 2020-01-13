@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"runtime"
 	"snapr/cli"
 	"testing"
 
@@ -15,8 +16,14 @@ var testRootCmdOpts *cli.RootCmdOptions
 func TestMain(m *testing.M) {
 	logrus.Infof("Tests Starting")
 
-	// TODO: ? override packr if needed?
-	// EnvFilePath = ".tests.env"
+	// which OS?
+	logrus.Infof("OS: %s", runtime.GOOS)
+
+	// load the environment
+	err := LoadEnv()
+	if err != nil {
+		logrus.Warnf(err.Error())
+	}
 
 	// init root options from env
 	testRootCmdOpts = &cli.RootCmdOptions{}
