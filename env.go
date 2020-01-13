@@ -38,7 +38,7 @@ func LoadEnv() (err error) {
 		return util.WrapError(err, funcTag, "cannot stat file from pgker")
 	}
 	envString := string(b)
-	logrus.Infof("DATA: %s", envString)
+	// logrus.Infof("DATA: %s", envString)
 
 	// apply env
 	// used this lib because it is loadable from string

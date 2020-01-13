@@ -1,4 +1,5 @@
 
+- display env version
 - Doc this command more
 - LOTS of TODOs in the code
 - serve - add rotate function
@@ -13,4 +14,8 @@
 - Add Device List Command and tests to list capture devices
 - Make Webcam and upload work on windows
 - serve command - add soft delete capability (batch?)
+
+
+DONE
+- update env loading
 
