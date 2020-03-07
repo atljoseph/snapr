@@ -136,12 +136,16 @@ on renameOutput(baseFolder, photoTitle, photoFilename, targetExtension)
 		set inFileNameNoExt to text 1 thru (lastDotIdx - 1) of photoFilename
 		set inFileNameBeforeExt to text lastDotIdx thru -1 of photoFilename
 		set inFileName to inFileNameNoExt & "." & targetExtension
+		log "photoFilename: " & photoFilename
+		-- log "inFileNameNoExt: " & inFileNameNoExt
+		-- log "inFileNameBeforeExt: " & inFileNameBeforeExt
 		
 		-- original file path
 		set inFilePath to baseFolder & ":" & inFileName
 		set inFile to file inFilePath
 		
-		set defaultFileName to inFileNameBeforeExt & "." & targetExtension
+		set defaultFileName to inFileNameNoExt & "." & targetExtension
+		log "defaultFileName: " & defaultFileName
 		
 		-- only rename if the title is not empty
 		if (photoTitle is not missing value) then
@@ -157,6 +161,7 @@ on renameOutput(baseFolder, photoTitle, photoFilename, targetExtension)
 				-- set name of fpOrig to fpNew
 				set name of file inFileName of folder baseFolder to outFileName
 				
+				log "new photo title: " & outFileName
 				return outFileName
 			else
 				log "photo has empty title: " & photoFilename
@@ -167,6 +172,7 @@ on renameOutput(baseFolder, photoTitle, photoFilename, targetExtension)
 			return defaultFileName
 		end if
 		
+		-- dummy return for function to work
 		return defaultFileName
 		
 	end tell
